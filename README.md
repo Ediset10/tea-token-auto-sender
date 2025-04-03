@@ -18,19 +18,19 @@ Kunci pribadi wallet (PRIVATE_KEY) dan token testnet.
 
 Text editor (misalnya nano).
 
-#Cara Pakai di VPS (Linux)#
+*Cara Pakai di VPS (Linux)*
 Download Program
 
 Ketik di terminal:
-``git clone https://github.com/Ediset10/tea-token-auto-sender.git
-cd tea-token-auto-sender``
+`git clone https://github.com/Ediset10/tea-token-auto-sender.git
+cd tea-token-auto-sender`
 
-#Pasang Alat yang Dibutuhkan#
+*Pasang Alat yang Dibutuhkan*
 
 Ketik:
 `npm install web3 dotenv csv-parser`
 
-#Atur Kunci Pribadi#
+*Atur Kunci Pribadi*
 
 Buat file .env:
 nano .env
@@ -41,7 +41,7 @@ TOKEN_ADDRESS=alamat_token_default
 
 Simpan (Ctrl+O, Enter, Ctrl+X).
 
-#Siapkan File CSV#
+*Siapkan File CSV*
 
 Buat folder "data":
 mkdir data
