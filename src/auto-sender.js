@@ -20,7 +20,7 @@ async function loadModules() {
     const account = web3.eth.accounts.privateKeyToAccount(privateKey);
     const senderAddress = account.address;
 
-    // Daftar token manual (dari Anda)
+    // Daftar token manual
     const tokenList = [
         { name: "TINU", address: "0xb2fe26E783f24E30EbDe2261928EC038dbf6478d" },
         { name: "Wen TGE", address: "0x3F2c9A99Af907591082E5962A7b39098d1249A43" }
@@ -34,11 +34,12 @@ async function loadModules() {
 
     // Konfigurasi
     const defaultCsvFilePath = 'data/recipients.csv';
-    const csvListFile = 'data/csv_list.txt'; // File yang berisi daftar CSV
+    const csvListFile = 'data/csv_list.txt';
     const logFilePath = 'logs/transaction_log.txt';
     const intervalMinutes = 10;
     const decimals = 18;
-    const csvDir = 'data/'; // Direktori untuk file CSV
+    const csvDir = 'data/';
+    const maxTokenLimit = 1000000000; // Batas maksimum 1 miliar token
 
     // Interface untuk input pengguna
     const rl = readline.createInterface({
@@ -52,7 +53,7 @@ async function loadModules() {
         fs.appendFileSync(logFilePath, `${timestamp}: ${message}\n`);
     }
 
-    // Fungsi untuk tampilan header dengan ASCII "AGR"
+    // Fungsi untuk tampilan header
     function displayHeader() {
         console.clear();
         console.log(`
@@ -76,6 +77,20 @@ async function loadModules() {
         }
     }
 
+    // Fungsi untuk memvalidasi jumlah token
+    function validateAmount(amount) {
+        const amountInt = Math.floor(parseFloat(amount));
+        if (isNaN(amountInt) || amountInt <= 0) {
+            console.log('Jumlah token tidak valid! Harus bilangan bulat positif.');
+            return null;
+        }
+        if (amountInt > maxTokenLimit) {
+            console.log(`Jumlah token melebihi batas maksimum ${maxTokenLimit.toLocaleString()}! Masukkan jumlah yang lebih kecil.`);
+            return null;
+        }
+        return amountInt;
+    }
+
     // Fungsi untuk memilih token dan mode
     async function chooseTokenAndMode() {
         displayHeader();
@@ -94,14 +109,27 @@ async function loadModules() {
                     tokenList.forEach((token, index) => {
                         console.log(`${index + 1}. ${token.name} (${token.address})`);
                     });
-                    rl.question('Pilih nomor token: ', (tokenChoice) => {
+                    rl.question('Pilih nomor token: ', async (tokenChoice) => {
                         const selectedToken = tokenList[parseInt(tokenChoice) - 1];
-                        if (selectedToken) {
-                            resolve({ mode: 'manual', address: selectedToken.address, csvPath: null, manualAmount: null });
-                        } else {
+                        if (!selectedToken) {
                             console.log('Pilihan tidak valid!');
                             process.exit(1);
                         }
+                        const recipients = [];
+                        console.log('\nMasukkan penerima secara manual (kosongkan untuk selesai):');
+                        while (true) {
+                            const recipient = await new Promise(resolve => {
+                                rl.question('Alamat penerima: ', resolve);
+                            });
+                            if (!recipient) break;
+                            const amount = await new Promise(resolve => {
+                                rl.question(`Jumlah token (maks ${maxTokenLimit.toLocaleString()}): `, resolve);
+                            });
+                            const amountInt = validateAmount(amount);
+                            if (amountInt === null) continue;
+                            recipients.push({ address: recipient, amount: amountInt });
+                        }
+                        resolve({ mode: 'manual', address: selectedToken.address, csvPath: null, manualAmount: null, recipients });
                     });
                 } else if (choice === '3' || choice === '4') {
                     let tokenAddress;
@@ -126,7 +154,6 @@ async function loadModules() {
                         });
                     }
 
-                    // Tampilkan daftar CSV dari csv_list.txt
                     const csvFiles = getCsvList();
                     if (csvFiles.length === 0) {
                         console.log('Tidak ada file CSV yang tersedia!');
@@ -140,13 +167,14 @@ async function loadModules() {
                         const selectedCsv = csvFiles[parseInt(csvChoice) - 1];
                         if (selectedCsv) {
                             const manualAmount = await new Promise(resolve => {
-                                rl.question('Masukkan jumlah token untuk semua penerima (bilangan bulat): ', resolve);
+                                rl.question(`Masukkan jumlah token untuk semua penerima (maks ${maxTokenLimit.toLocaleString()}): `, resolve);
                             });
-                            const amountInt = Math.floor(parseFloat(manualAmount));
-                            if (isNaN(amountInt) || amountInt <= 0) {
-                                console.log('Jumlah token tidak valid! Harus bilangan bulat positif.');
+                            const amountInt = validateAmount(manualAmount);
+                            if (amountInt === null) {
+                                console.log('Silakan jalankan ulang script dan masukkan jumlah yang valid.');
                                 process.exit(1);
                             }
+                            logToFile(`Jumlah token yang dipilih: ${amountInt}`);
                             resolve({ mode: 'csv_custom_manual', address: tokenAddress, csvPath: `${csvDir}${selectedCsv}`, manualAmount: amountInt });
                         } else {
                             console.log('Pilihan tidak valid!');
@@ -167,7 +195,7 @@ async function loadModules() {
             const recipients = [];
             fs.createReadStream(csvPath)
                 .pipe(csv())
-                .on('data', (row) => recipients.push({ address: row.address, amount: null })) // Ignore amount dari CSV
+                .on('data', (row) => recipients.push({ address: row.address, amount: null }))
                 .on('end', () => resolve(recipients))
                 .on('error', (error) => reject(error));
         });
@@ -176,8 +204,10 @@ async function loadModules() {
     // Fungsi untuk mengirim token
     async function sendToken(tokenContract, toAddress, amount) {
         try {
-            // Pastikan amount adalah bilangan bulat dan konversi ke string untuk BN
-            const tokenAmount = web3.utils.toBN(Math.floor(amount).toString()).mul(web3.utils.toBN(10 ** decimals));
+            const amountInt = Math.floor(amount);
+            const tokenAmount = web3.utils.toWei(amountInt.toString(), 'ether');
+            logToFile(`Mengirim ${amountInt} token ke ${toAddress} | Token Amount (wei): ${tokenAmount}`);
+
             const nonce = await web3.eth.getTransactionCount(senderAddress, 'pending');
             const gasPrice = await web3.eth.getGasPrice();
             const gasEstimate = await tokenContract.methods.transfer(toAddress, tokenAmount)
@@ -187,7 +217,7 @@ async function loadModules() {
                 nonce: web3.utils.toHex(nonce),
                 to: tokenContract.options.address,
                 value: '0x0',
-                gasLimit: web3.utils.toHex(gasEstimate),
+                gasLimit: web3.utils.toHex(gasEstimate + 10000),
                 gasPrice: web3.utils.toHex(gasPrice),
                 data: tokenContract.methods.transfer(toAddress, tokenAmount).encodeABI(),
                 chainId: chainId
@@ -196,13 +226,13 @@ async function loadModules() {
             const signedTx = await web3.eth.accounts.signTransaction(txData, privateKey);
             const receipt = await web3.eth.sendSignedTransaction(signedTx.rawTransaction);
 
-            const logMessage = `Berhasil mengirim ${amount} token ke ${toAddress} | Tx Hash: ${receipt.transactionHash}`;
+            const logMessage = `Berhasil mengirim ${amountInt} token ke ${toAddress} | Tx Hash: ${receipt.transactionHash}`;
             console.log(logMessage);
             logToFile(logMessage);
 
             return receipt.transactionHash;
         } catch (error) {
-            const errorMessage = `Error mengirim ke ${toAddress}: ${error.message}`;
+            const errorMessage = `Error mengirim ${amount} token ke ${toAddress}: ${error.message}`;
             console.log(errorMessage);
             logToFile(errorMessage);
             throw error;
@@ -222,8 +252,7 @@ async function loadModules() {
     async function startAutoSender() {
         const intervalMs = intervalMinutes * 60 * 1000;
 
-        // Pilih token dan mode
-        const { mode, address, csvPath, manualAmount } = await chooseTokenAndMode();
+        const { mode, address, csvPath, manualAmount, recipients: manualRecipients } = await chooseTokenAndMode();
         const tokenContract = new web3.eth.Contract(tokenABI, address);
 
         displayHeader();
@@ -232,28 +261,10 @@ async function loadModules() {
         if (manualAmount) console.log(`Jumlah token manual: ${manualAmount}`);
 
         try {
-            let recipients;
+            let recipients = manualRecipients || []; // Gunakan recipients dari opsi 2 jika ada
             if (mode === 'csv') {
                 recipients = await readCSV(csvPath);
                 if (recipients.length === 0) throw new Error('File CSV kosong atau tidak valid');
-            } else if (mode === 'manual') {
-                recipients = [];
-                console.log('\nMasukkan penerima secara manual (kosongkan untuk selesai):');
-                while (true) {
-                    const recipient = await new Promise(resolve => {
-                        rl.question('Alamat penerima: ', resolve);
-                    });
-                    if (!recipient) break;
-                    const amount = await new Promise(resolve => {
-                        rl.question('Jumlah token (bilangan bulat): ', resolve);
-                    });
-                    const amountInt = Math.floor(parseFloat(amount));
-                    if (isNaN(amountInt) || amountInt <= 0) {
-                        console.log('Jumlah token tidak valid! Harus bilangan bulat positif.');
-                        continue;
-                    }
-                    recipients.push({ address: recipient, amount: amountInt });
-                }
             } else if (mode === 'csv_custom_manual') {
                 recipients = await readCSV(csvPath);
                 if (recipients.length === 0) throw new Error('File CSV kosong atau tidak valid');
@@ -261,8 +272,9 @@ async function loadModules() {
             }
 
             const balance = await checkBalance(tokenContract);
-            const totalNeeded = recipients.reduce((sum, r) => sum + r.amount, 0) * (10 ** decimals);
-            if (web3.utils.toBN(balance).lt(web3.utils.toBN(totalNeeded.toString()))) {
+            const totalNeeded = web3.utils.toWei((recipients.reduce((sum, r) => sum + r.amount, 0)).toString(), 'ether');
+            logToFile(`Total kebutuhan token (wei): ${totalNeeded} | Saldo saat ini (wei): ${balance}`);
+            if (web3.utils.toBN(balance).lt(web3.utils.toBN(totalNeeded))) {
                 console.log('Saldo token tidak cukup untuk semua transaksi');
                 logToFile('Saldo token tidak cukup untuk semua transaksi');
                 rl.close();
@@ -274,7 +286,8 @@ async function loadModules() {
                 console.log(`Memulai batch transaksi otomatis...`);
                 for (const recipient of recipients) {
                     const currentBalance = await checkBalance(tokenContract);
-                    if (web3.utils.toBN(currentBalance).lt(web3.utils.toBN((recipient.amount * (10 ** decimals)).toString()))) {
+                    const recipientAmount = web3.utils.toWei(recipient.amount.toString(), 'ether');
+                    if (web3.utils.toBN(currentBalance).lt(web3.utils.toBN(recipientAmount))) {
                         console.log(`Saldo tidak cukup untuk ${recipient.address}. Menghentikan batch.`);
                         logToFile(`Saldo tidak cukup untuk ${recipient.address}. Menghentikan batch.`);
                         break;
