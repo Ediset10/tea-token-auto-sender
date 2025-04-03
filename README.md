@@ -1,7 +1,7 @@
 Tea Token Auto Sender
 Ini adalah program sederhana untuk mengirim token di Tea Sepolia Testnet secara otomatis. Anda bisa mengirim token ke banyak alamat dari file CSV atau memasukkan alamat satu per satu. Batas maksimum pengiriman adalah 1 juta token per alamat.
 Fitur
-Kirim token dari file CSV (data/recipients.csv).
+#Kirim token dari file CSV (data/recipients.csv).#
 
 Masukkan alamat dan jumlah token secara manual.
 
@@ -18,21 +18,19 @@ Kunci pribadi wallet (PRIVATE_KEY) dan token testnet.
 
 Text editor (misalnya nano).
 
-Cara Pakai di VPS (Linux)
+#Cara Pakai di VPS (Linux)#
 Download Program
 
 Ketik di terminal:
-git clone https://github.com/yourusername/tea-token-auto-sender.git
-cd tea-token-auto-sender
+```git clone https://github.com/Ediset10/tea-token-auto-sender.git
+cd tea-token-auto-sender```
 
-Ganti "yourusername" dengan nama GitHub Anda.
-
-Pasang Alat yang Dibutuhkan
+#Pasang Alat yang Dibutuhkan#
 
 Ketik:
-npm install web3 dotenv csv-parser
+`npm install web3 dotenv csv-parser`
 
-Atur Kunci Pribadi
+#Atur Kunci Pribadi#
 
 Buat file .env:
 nano .env
@@ -43,7 +41,7 @@ TOKEN_ADDRESS=alamat_token_default
 
 Simpan (Ctrl+O, Enter, Ctrl+X).
 
-Siapkan File CSV
+#Siapkan File CSV#
 
 Buat folder "data":
 mkdir data
@@ -62,12 +60,12 @@ address,amount
 0xAlamat1,10
 0xAlamat2,5
 
-Buat Folder untuk Catatan
+#Buat Folder untuk Catatan#
 
 Ketik:
 mkdir logs
 
-Jalankan Program
+#Jalankan Program#
 
 Ketik:
 node src/auto-sender.js
@@ -75,7 +73,7 @@ node src/auto-sender.js
 Pilih opsi:
 Pakai CSV default.
 
-Masukkan alamat manual.
+#Masukkan alamat manual.#
 
 Pilih token dan CSV, lalu masukkan jumlah (maks 1 juta).
 
@@ -87,29 +85,29 @@ Lihat Catatan
 Ketik:
 cat logs/transaction_log.txt
 
-Cara Pakai di Termux (Android)
-Pasang Termux
+#Cara Pakai di Termux (Android)
+Pasang Termux#
 
 Download dari Google Play atau F-Droid.
 
 Update Termux:
-pkg update && pkg upgrade
+``pkg update && pkg upgrade``
 
 Pasang Node.js dan Git
 
 Ketik:
-pkg install nodejs git
+``pkg install nodejs git``
 
 Download Program
 
 Ketik:
-git clone https://github.com/yourusername/tea-token-auto-sender.git
-cd tea-token-auto-sender
+``git clone https://github.com/Ediset10/tea-token-auto-sender.git
+cd tea-token-auto-sender``
 
 Pasang Alat yang Dibutuhkan
 
 Ketik:
-npm install web3 dotenv csv-parser
+``npm install web3 dotenv csv-parser``
 
 Atur Kunci Pribadi
 
