@@ -20,7 +20,7 @@ async function loadModules() {
     const account = web3.eth.accounts.privateKeyToAccount(privateKey);
     const senderAddress = account.address;
 
-    // Daftar token manual (contoh)
+    // Daftar token manual (dari Anda)
     const tokenList = [
         { name: "TINU", address: "0xb2fe26E783f24E30EbDe2261928EC038dbf6478d" },
         { name: "Wen TGE", address: "0x3F2c9A99Af907591082E5962A7b39098d1249A43" }
@@ -140,9 +140,14 @@ async function loadModules() {
                         const selectedCsv = csvFiles[parseInt(csvChoice) - 1];
                         if (selectedCsv) {
                             const manualAmount = await new Promise(resolve => {
-                                rl.question('Masukkan jumlah token untuk semua penerima: ', resolve);
+                                rl.question('Masukkan jumlah token untuk semua penerima (bilangan bulat): ', resolve);
                             });
-                            resolve({ mode: 'csv_custom_manual', address: tokenAddress, csvPath: `${csvDir}${selectedCsv}`, manualAmount: parseFloat(manualAmount) });
+                            const amountInt = Math.floor(parseFloat(manualAmount));
+                            if (isNaN(amountInt) || amountInt <= 0) {
+                                console.log('Jumlah token tidak valid! Harus bilangan bulat positif.');
+                                process.exit(1);
+                            }
+                            resolve({ mode: 'csv_custom_manual', address: tokenAddress, csvPath: `${csvDir}${selectedCsv}`, manualAmount: amountInt });
                         } else {
                             console.log('Pilihan tidak valid!');
                             process.exit(1);
@@ -171,7 +176,8 @@ async function loadModules() {
     // Fungsi untuk mengirim token
     async function sendToken(tokenContract, toAddress, amount) {
         try {
-            const tokenAmount = web3.utils.toBN(amount * (10 ** decimals)).toString();
+            // Pastikan amount adalah bilangan bulat dan konversi ke string untuk BN
+            const tokenAmount = web3.utils.toBN(Math.floor(amount).toString()).mul(web3.utils.toBN(10 ** decimals));
             const nonce = await web3.eth.getTransactionCount(senderAddress, 'pending');
             const gasPrice = await web3.eth.getGasPrice();
             const gasEstimate = await tokenContract.methods.transfer(toAddress, tokenAmount)
@@ -239,9 +245,14 @@ async function loadModules() {
                     });
                     if (!recipient) break;
                     const amount = await new Promise(resolve => {
-                        rl.question('Jumlah token: ', resolve);
+                        rl.question('Jumlah token (bilangan bulat): ', resolve);
                     });
-                    recipients.push({ address: recipient, amount: parseFloat(amount) });
+                    const amountInt = Math.floor(parseFloat(amount));
+                    if (isNaN(amountInt) || amountInt <= 0) {
+                        console.log('Jumlah token tidak valid! Harus bilangan bulat positif.');
+                        continue;
+                    }
+                    recipients.push({ address: recipient, amount: amountInt });
                 }
             } else if (mode === 'csv_custom_manual') {
                 recipients = await readCSV(csvPath);
@@ -250,8 +261,8 @@ async function loadModules() {
             }
 
             const balance = await checkBalance(tokenContract);
-            const totalNeeded = recipients.reduce((sum, r) => sum + (r.amount * (10 ** decimals)), 0);
-            if (web3.utils.toBN(balance).lt(web3.utils.toBN(totalNeeded))) {
+            const totalNeeded = recipients.reduce((sum, r) => sum + r.amount, 0) * (10 ** decimals);
+            if (web3.utils.toBN(balance).lt(web3.utils.toBN(totalNeeded.toString()))) {
                 console.log('Saldo token tidak cukup untuk semua transaksi');
                 logToFile('Saldo token tidak cukup untuk semua transaksi');
                 rl.close();
@@ -263,7 +274,7 @@ async function loadModules() {
                 console.log(`Memulai batch transaksi otomatis...`);
                 for (const recipient of recipients) {
                     const currentBalance = await checkBalance(tokenContract);
-                    if (web3.utils.toBN(currentBalance).lt(web3.utils.toBN(recipient.amount * (10 ** decimals)))) {
+                    if (web3.utils.toBN(currentBalance).lt(web3.utils.toBN((recipient.amount * (10 ** decimals)).toString()))) {
                         console.log(`Saldo tidak cukup untuk ${recipient.address}. Menghentikan batch.`);
                         logToFile(`Saldo tidak cukup untuk ${recipient.address}. Menghentikan batch.`);
                         break;
