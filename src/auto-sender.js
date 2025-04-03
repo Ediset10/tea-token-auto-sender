@@ -3,7 +3,7 @@ const fs = require('fs');
 const csv = require('csv-parser');
 require('dotenv').config();
 
-const web3 = new Web3('https://rpc.testnet.tea.xyz');
+const web3 = new Web3('https://tea-sepolia.g.alchemy.com/public');
 const chainId = 10218;
 
 const privateKey = process.env.PRIVATE_KEY;
