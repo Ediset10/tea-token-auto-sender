@@ -22,8 +22,8 @@ Text editor (misalnya nano).
 Download Program
 
 Ketik di terminal:
-```git clone https://github.com/Ediset10/tea-token-auto-sender.git
-cd tea-token-auto-sender```
+``git clone https://github.com/Ediset10/tea-token-auto-sender.git
+cd tea-token-auto-sender``
 
 #Pasang Alat yang Dibutuhkan#
 
