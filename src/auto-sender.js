@@ -11,7 +11,7 @@ async function loadModules() {
     dotenv.config();
 
     // Konfigurasi Tea Sepolia Testnet
-    const primaryRpc = 'https://tea-sepolia.g.alchemy.com/public';
+    const primaryRpc = 'https://tea-sepolia.g.alchemy.com/public'; // Ganti dengan API key jika ada
     const web3 = new Web3(primaryRpc);
     const chainId = 10218;
 
@@ -21,7 +21,7 @@ async function loadModules() {
     const account = web3.eth.accounts.privateKeyToAccount(privateKey);
     const senderAddress = account.address;
 
-    // Daftar token manual (Ditambahkan Wen JP)
+    // Daftar token manual
     const tokenList = [
         { name: "TINU", address: "0xb2fe26E783f24E30EbDe2261928EC038dbf6478d" },
         { name: "Wen TGE", address: "0x3F2c9A99Af907591082E5962A7b39098d1249A43" },
@@ -40,7 +40,7 @@ async function loadModules() {
     const logFilePath = 'logs/transaction_log.txt';
     const decimals = 18;
     const csvDir = 'data/';
-    const maxTokenLimit = 1000000000; // Batas maksimum 1 miliar token
+    const maxTokenLimit = 1000000000;
 
     // Interface untuk input pengguna
     const rl = readline.createInterface({
@@ -74,9 +74,9 @@ async function loadModules() {
         for (let count = 0; count < 10; count++) {
             process.stdout.write(`\r${chalk.yellow('Memperbarui Tx Hash ' + frames[i % frames.length])}`);
             i++;
-            await new Promise(resolve => setTimeout(resolve, 200)); // Delay 200ms per frame
+            await new Promise(resolve => setTimeout(resolve, 200));
         }
-        process.stdout.write(`\r${chalk.green('Tx Hash: ' + txHash)}\n`); // Hijau
+        process.stdout.write(`\r${chalk.green('Tx Hash: ' + txHash)}\n`);
     }
 
     // Fungsi untuk membaca daftar file CSV dari csv_list.txt
@@ -132,7 +132,7 @@ async function loadModules() {
                         const selectedToken = tokenList[parseInt(tokenChoice) - 1];
                         if (!selectedToken) {
                             console.log(chalk.red('Pilihan tidak valid!'));
-                            resolve(await chooseTokenAndMode()); // Kembali ke menu
+                            resolve(await chooseTokenAndMode());
                         }
                         const recipients = [];
                         console.log(chalk.yellow('\nMasukkan penerima secara manual (kosongkan untuk selesai):'));
@@ -165,7 +165,7 @@ async function loadModules() {
                         });
                         if (!tokenAddress) {
                             console.log(chalk.red('Pilihan tidak valid!'));
-                            resolve(await chooseTokenAndMode()); // Kembali ke menu
+                            resolve(await chooseTokenAndMode());
                         }
                     } else {
                         tokenAddress = await new Promise(resolve => {
@@ -176,7 +176,7 @@ async function loadModules() {
                     const csvFiles = getCsvList();
                     if (csvFiles.length === 0) {
                         console.log(chalk.red('Tidak ada file CSV yang tersedia!'));
-                        resolve(await chooseTokenAndMode()); // Kembali ke menu
+                        resolve(await chooseTokenAndMode());
                     }
                     console.log(chalk.yellow('\nDaftar File CSV Tersedia:'));
                     csvFiles.forEach((file, index) => {
@@ -186,21 +186,21 @@ async function loadModules() {
                         const selectedCsv = csvFiles[parseInt(csvChoice) - 1];
                         if (!selectedCsv) {
                             console.log(chalk.red('Pilihan tidak valid!'));
-                            resolve(await chooseTokenAndMode()); // Kembali ke menu
+                            resolve(await chooseTokenAndMode());
                         }
                         const manualAmount = await new Promise(resolve => {
                             rl.question(chalk.green(`Masukkan jumlah token untuk semua penerima (maks ${maxTokenLimit.toLocaleString()}): `), resolve);
                         });
                         const amountInt = validateAmount(manualAmount);
                         if (amountInt === null) {
-                            resolve(await chooseTokenAndMode()); // Kembali ke menu
+                            resolve(await chooseTokenAndMode());
                         }
                         logToFile(`Jumlah token yang dipilih: ${amountInt}`);
                         resolve({ mode: 'csv_custom_manual', address: tokenAddress, csvPath: `${csvDir}${selectedCsv}`, manualAmount: amountInt });
                     });
                 } else {
                     console.log(chalk.red('Pilihan tidak valid!'));
-                    resolve(await chooseTokenAndMode()); // Kembali ke menu
+                    resolve(await chooseTokenAndMode());
                 }
             });
         });
@@ -218,42 +218,48 @@ async function loadModules() {
         });
     }
 
-    // Fungsi untuk mengirim token
-    async function sendToken(tokenContract, toAddress, amount) {
-        try {
-            const amountInt = Math.floor(amount);
-            const tokenAmount = web3.utils.toWei(amountInt.toString(), 'ether');
-            logToFile(`Mengirim ${amountInt} token ke ${toAddress} | Token Amount (wei): ${tokenAmount}`);
+    // Fungsi untuk mengirim token dengan retry
+    async function sendToken(tokenContract, toAddress, amount, retries = 3) {
+        for (let attempt = 1; attempt <= retries; attempt++) {
+            try {
+                const amountInt = Math.floor(amount);
+                const tokenAmount = web3.utils.toWei(amountInt.toString(), 'ether');
+                logToFile(`Mengirim ${amountInt} token ke ${toAddress} | Token Amount (wei): ${tokenAmount} | Percobaan ${attempt}`);
 
-            const nonce = await web3.eth.getTransactionCount(senderAddress, 'pending');
-            const gasPrice = await web3.eth.getGasPrice();
-            const gasEstimate = await tokenContract.methods.transfer(toAddress, tokenAmount)
-                .estimateGas({ from: senderAddress });
+                const nonce = await web3.eth.getTransactionCount(senderAddress, 'pending');
+                const gasPrice = await web3.eth.getGasPrice();
+                const gasEstimate = await tokenContract.methods.transfer(toAddress, tokenAmount)
+                    .estimateGas({ from: senderAddress });
 
-            const txData = {
-                nonce: web3.utils.toHex(nonce),
-                to: tokenContract.options.address,
-                value: '0x0',
-                gasLimit: web3.utils.toHex(gasEstimate + 10000),
-                gasPrice: web3.utils.toHex(gasPrice),
-                data: tokenContract.methods.transfer(toAddress, tokenAmount).encodeABI(),
-                chainId: chainId
-            };
+                const txData = {
+                    nonce: web3.utils.toHex(nonce),
+                    to: tokenContract.options.address,
+                    value: '0x0',
+                    gasLimit: web3.utils.toHex(gasEstimate + 10000),
+                    gasPrice: web3.utils.toHex(gasPrice),
+                    data: tokenContract.methods.transfer(toAddress, tokenAmount).encodeABI(),
+                    chainId: chainId
+                };
 
-            const signedTx = await web3.eth.accounts.signTransaction(txData, privateKey);
-            const receipt = await web3.eth.sendSignedTransaction(signedTx.rawTransaction);
+                const signedTx = await web3.eth.accounts.signTransaction(txData, privateKey);
+                const receipt = await web3.eth.sendSignedTransaction(signedTx.rawTransaction);
 
-            const logMessage = `Berhasil mengirim ${amountInt} token ke ${toAddress}`;
-            console.log(chalk.rgb(255, 165, 0)(logMessage)); // RGB (Orange)
-            await displayTxHashWithAnimation(receipt.transactionHash);
-            logToFile(`${logMessage} | Tx Hash: ${receipt.transactionHash}`);
+                const logMessage = `Berhasil mengirim ${amountInt} token ke ${toAddress}`;
+                console.log(chalk.rgb(255, 165, 0)(logMessage));
+                await displayTxHashWithAnimation(receipt.transactionHash);
+                logToFile(`${logMessage} | Tx Hash: ${receipt.transactionHash}`);
 
-            return receipt.transactionHash;
-        } catch (error) {
-            const errorMessage = `Error mengirim ${amount} token ke ${toAddress}: ${error.message}`;
-            console.log(chalk.red(errorMessage));
-            logToFile(errorMessage);
-            return null; // Mengembalikan null agar transaksi berikutnya tetap berjalan
+                return receipt.transactionHash;
+            } catch (error) {
+                const errorMessage = `Error mengirim ${amount} token ke ${toAddress}: ${error.message} | Percobaan ${attempt}`;
+                console.log(chalk.red(errorMessage));
+                logToFile(errorMessage);
+                if (attempt === retries) {
+                    console.log(chalk.red(`Gagal setelah ${retries} percobaan. Melewati ke penerima berikutnya.`));
+                    return null;
+                }
+                await new Promise(resolve => setTimeout(resolve, 2000)); // Tunggu 2 detik sebelum retry
+            }
         }
     }
 
@@ -261,7 +267,7 @@ async function loadModules() {
     async function checkBalance(tokenContract) {
         const balance = await tokenContract.methods.balanceOf(senderAddress).call();
         const balanceInTokens = web3.utils.fromWei(balance, 'ether');
-        console.log(chalk.blue(`Saldo token saat ini: ${balanceInTokens} token`)); // Biru
+        console.log(chalk.blue(`Saldo token saat ini: ${balanceInTokens} token`));
         logToFile(`Saldo token saat ini: ${balanceInTokens} token`);
         return balance;
     }
@@ -274,7 +280,7 @@ async function loadModules() {
             console.log('2. Keluar');
             rl.question(chalk.green('Masukkan pilihan (1-2): '), (choice) => {
                 if (choice === '1') {
-                    resolve(true); // Kembali ke menu utama
+                    resolve(true);
                 } else {
                     console.log(chalk.blue('Keluar dari program.'));
                     rl.close();
@@ -286,7 +292,7 @@ async function loadModules() {
 
     // Fungsi utama untuk auto send
     async function startAutoSender() {
-        while (true) { // Loop untuk kembali ke menu utama
+        while (true) {
             const { mode, address, csvPath, manualAmount, recipients: manualRecipients } = await chooseTokenAndMode();
             const tokenContract = new web3.eth.Contract(tokenABI, address);
 
@@ -331,28 +337,26 @@ async function loadModules() {
                         const txHash = await sendToken(tokenContract, recipient.address, recipient.amount);
                         if (txHash) {
                             successfulTx++;
-                            console.log(chalk.hex('#FF69B4')(`Sudah dikirim ke ${successfulTx}/${totalRecipients} address`)); // Pink
+                            console.log(chalk.hex('#FF69B4')(`Sudah dikirim ke ${successfulTx}/${totalRecipients} address`));
                         } else {
                             failedTx++;
                         }
                     }
-                    await new Promise(resolve => setTimeout(resolve, 1000)); // Delay 1 detik seperti semula
+                    await new Promise(resolve => setTimeout(resolve, 1000));
                 }
 
                 console.log(chalk.green(`Pengiriman selesai! Berhasil: ${successfulTx}, Gagal: ${failedTx}`));
                 logToFile(`Pengiriman selesai! Berhasil: ${successfulTx}, Gagal: ${failedTx}`);
 
-                // Tampilkan menu kembali
                 const returnToMenu = await showReturnMenu();
-                if (!returnToMenu) break; // Keluar dari loop jika tidak kembali ke menu
+                if (!returnToMenu) break;
 
             } catch (error) {
                 console.log(chalk.red('Error dalam pengaturan pengiriman:'), error.message);
                 logToFile(`Error dalam pengaturan pengiriman: ${error.message}`);
 
-                // Tampilkan menu kembali meskipun ada error
                 const returnToMenu = await showReturnMenu();
-                if (!returnToMenu) break; // Keluar dari loop jika tidak kembali ke menu
+                if (!returnToMenu) break;
             }
         }
     }
