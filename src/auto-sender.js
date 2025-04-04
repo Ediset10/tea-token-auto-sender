@@ -21,10 +21,11 @@ async function loadModules() {
     const account = web3.eth.accounts.privateKeyToAccount(privateKey);
     const senderAddress = account.address;
 
-    // Daftar token manual
+    // Daftar token manual (Ditambahkan Wen JP)
     const tokenList = [
         { name: "TINU", address: "0xb2fe26E783f24E30EbDe2261928EC038dbf6478d" },
-        { name: "Wen TGE", address: "0x3F2c9A99Af907591082E5962A7b39098d1249A43" }
+        { name: "Wen TGE", address: "0x3F2c9A99Af907591082E5962A7b39098d1249A43" },
+        { name: "Wen JP", address: "0xec4b0c4925Bbed337841a513c7693489808cBDDF" }
     ];
 
     // ABI standar ERC-20
@@ -75,7 +76,7 @@ async function loadModules() {
             i++;
             await new Promise(resolve => setTimeout(resolve, 200)); // Delay 200ms per frame
         }
-        process.stdout.write(`\r${chalk.green('Tx Hash: ' + txHash)}\n`);
+        process.stdout.write(`\r${chalk.green('Tx Hash: ' + txHash)}\n`); // Hijau
     }
 
     // Fungsi untuk membaca daftar file CSV dari csv_list.txt
@@ -243,7 +244,7 @@ async function loadModules() {
             const receipt = await web3.eth.sendSignedTransaction(signedTx.rawTransaction);
 
             const logMessage = `Berhasil mengirim ${amountInt} token ke ${toAddress}`;
-            console.log(chalk.green(logMessage));
+            console.log(chalk.rgb(255, 165, 0)(logMessage)); // RGB (Orange)
             await displayTxHashWithAnimation(receipt.transactionHash);
             logToFile(`${logMessage} | Tx Hash: ${receipt.transactionHash}`);
 
@@ -260,7 +261,7 @@ async function loadModules() {
     async function checkBalance(tokenContract) {
         const balance = await tokenContract.methods.balanceOf(senderAddress).call();
         const balanceInTokens = web3.utils.fromWei(balance, 'ether');
-        console.log(chalk.blue(`Saldo token saat ini: ${balanceInTokens} token`));
+        console.log(chalk.blue(`Saldo token saat ini: ${balanceInTokens} token`)); // Biru
         logToFile(`Saldo token saat ini: ${balanceInTokens} token`);
         return balance;
     }
@@ -330,7 +331,7 @@ async function loadModules() {
                         const txHash = await sendToken(tokenContract, recipient.address, recipient.amount);
                         if (txHash) {
                             successfulTx++;
-                            console.log(chalk.blue(`Sudah dikirim ke ${successfulTx}/${totalRecipients} address`));
+                            console.log(chalk.hex('#FF69B4')(`Sudah dikirim ke ${successfulTx}/${totalRecipients} address`)); // Pink
                         } else {
                             failedTx++;
                         }
