@@ -95,10 +95,10 @@ async function loadModules() {
     async function chooseTokenAndMode() {
         displayHeader();
         console.log(chalk.yellow('Pilih mode pengiriman token:'));
-        console.log('1. Dari file CSV default (data/recipients.csv)');
+        console.log('1. Dari file CSV');
         console.log('2. Pilih token manual + masukkan penerima manual');
         console.log('3. Pilih token dan CSV dari daftar + jumlah manual');
-        console.log('4. Masukkan alamat token mu + jumlah yang ingin dikirim');
+        console.log('4. Masukkan alamat token anda + jumalah ');
         console.log('5. Keluar');
 
         return new Promise((resolve) => {
@@ -239,7 +239,7 @@ async function loadModules() {
             const errorMessage = `Error mengirim ${amount} token ke ${toAddress}: ${error.message}`;
             console.log(chalk.red(errorMessage));
             logToFile(errorMessage);
-            throw error;
+            return null; // Mengembalikan null agar transaksi berikutnya tetap berjalan
         }
     }
 
@@ -278,33 +278,41 @@ async function loadModules() {
                 const totalNeeded = web3.utils.toWei((recipients.reduce((sum, r) => sum + r.amount, 0)).toString(), 'ether');
                 logToFile(`Total kebutuhan token (wei): ${totalNeeded} | Saldo saat ini (wei): ${balance}`);
                 if (web3.utils.toBN(balance).lt(web3.utils.toBN(totalNeeded))) {
-                    console.log(chalk.red('Saldo token tidak cukup untuk semua transaksi'));
-                    logToFile('Saldo token tidak cukup untuk semua transaksi');
-                    await new Promise(resolve => rl.question(chalk.green('Tekan Enter untuk kembali ke menu utama...'), resolve));
-                    continue; // Kembali ke menu utama
+                    console.log(chalk.red('Saldo token mungkin tidak cukup untuk semua transaksi, tetapi akan tetap mencoba setiap penerima'));
+                    logToFile('Saldo token mungkin tidak cukup untuk semua transaksi, tetapi akan tetap mencoba setiap penerima');
                 }
 
                 displayHeader();
                 console.log(chalk.yellow(`Memulai pengiriman transaksi...`));
+                let successfulTx = 0;
+                let failedTx = 0;
+
                 for (const recipient of recipients) {
                     const currentBalance = await checkBalance(tokenContract);
                     const recipientAmount = web3.utils.toWei(recipient.amount.toString(), 'ether');
                     if (web3.utils.toBN(currentBalance).lt(web3.utils.toBN(recipientAmount))) {
-                        console.log(chalk.red(`Saldo tidak cukup untuk ${recipient.address}. Menghentikan pengiriman.`));
-                        logToFile(`Saldo tidak cukup untuk ${recipient.address}. Menghentikan pengiriman.`);
-                        break;
+                        console.log(chalk.red(`Saldo tidak cukup untuk ${recipient.address}. Melewati ke penerima berikutnya.`));
+                        logToFile(`Saldo tidak cukup untuk ${recipient.address}. Melewati ke penerima berikutnya.`);
+                        failedTx++;
+                    } else {
+                        const txHash = await sendToken(tokenContract, recipient.address, recipient.amount);
+                        if (txHash) {
+                            successfulTx++;
+                        } else {
+                            failedTx++;
+                        }
                     }
-                    await sendToken(tokenContract, recipient.address, recipient.amount);
                     console.log(chalk.blue('Menunggu 5 detik sebelum transaksi berikutnya...'));
                     await new Promise(resolve => setTimeout(resolve, 5000)); // Delay 5 detik
                 }
-                console.log(chalk.green('Semua transaksi selesai!'));
-                logToFile('Semua transaksi selesai!');
+
+                console.log(chalk.green(`Pengiriman selesai! Berhasil: ${successfulTx}, Gagal: ${failedTx}`));
+                logToFile(`Pengiriman selesai! Berhasil: ${successfulTx}, Gagal: ${failedTx}`);
                 await new Promise(resolve => rl.question(chalk.green('Tekan Enter untuk kembali ke menu utama...'), resolve));
 
             } catch (error) {
-                console.log(chalk.red('Error dalam pengiriman:'), error.message);
-                logToFile(`Error dalam pengiriman: ${error.message}`);
+                console.log(chalk.red('Error dalam pengaturan pengiriman:'), error.message);
+                logToFile(`Error dalam pengaturan pengiriman: ${error.message}`);
                 await new Promise(resolve => rl.question(chalk.green('Tekan Enter untuk kembali ke menu utama...'), resolve));
             }
         }
