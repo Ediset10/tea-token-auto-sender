@@ -21,19 +21,6 @@ async function loadModules() {
     const account = web3.eth.accounts.privateKeyToAccount(privateKey);
     const senderAddress = account.address;
 
-    // Interface untuk input pengguna
-    const rl = readline.createInterface({
-        input: process.stdin,
-        output: process.stdout
-    });
-
-    // Konfigurasi
-    const defaultCsvFilePath = 'data/recipients.csv';
-    const csvListFile = 'data/csv_list.txt';
-    const logFilePath = 'logs/transaction_log.txt';
-    const csvDir = 'data/';
-    const maxTokenLimit = 1000000000; // Batas maksimum 1 miliar token
-
     // Daftar token manual
     const tokenList = [
         { name: "TINU", address: "0xb2fe26E783f24E30EbDe2261928EC038dbf6478d" },
@@ -45,6 +32,20 @@ async function loadModules() {
         {"constant":false,"inputs":[{"name":"_to","type":"address"},{"name":"_value","type":"uint256"}],"name":"transfer","outputs":[{"name":"","type":"bool"}],"type":"function"},
         {"constant":true,"inputs":[{"name":"_owner","type":"address"}],"name":"balanceOf","outputs":[{"name":"balance","type":"uint256"}],"type":"function"}
     ];
+
+    // Konfigurasi
+    const defaultCsvFilePath = 'data/recipients.csv';
+    const csvListFile = 'data/csv_list.txt';
+    const logFilePath = 'logs/transaction_log.txt';
+    const decimals = 18;
+    const csvDir = 'data/';
+    const maxTokenLimit = 1000000000; // Batas maksimum 1 miliar token
+
+    // Interface untuk input pengguna
+    const rl = readline.createInterface({
+        input: process.stdin,
+        output: process.stdout
+    });
 
     // Fungsi untuk logging
     function logToFile(message) {
@@ -109,7 +110,7 @@ async function loadModules() {
         console.log('1. Dari file CSV');
         console.log('2. Pilih token manual + masukkan penerima manual');
         console.log('3. Pilih token dan CSV dari daftar + jumlah manual');
-        console.log('4. Masukkan alamat token anda + jumlah');
+        console.log('4. Masukkan alamat token anda + jumalah ');
         console.log('5. Keluar');
 
         return new Promise((resolve) => {
@@ -120,7 +121,7 @@ async function loadModules() {
                     process.exit(0);
                 }
                 if (choice === '1') {
-                    resolve({ mode: 'csv', address: process.env.TOKEN_ADDRESS || tokenList[0].address, csvPath: defaultCsvFilePath, manualAmount: null });
+                    resolve({ mode: 'csv', address: process.env.TOKEN_ADDRESS, csvPath: defaultCsvFilePath, manualAmount: null });
                 } else if (choice === '2') {
                     console.log(chalk.yellow('\nDaftar Token Tersedia:'));
                     tokenList.forEach((token, index) => {
@@ -264,6 +265,24 @@ async function loadModules() {
         return balance;
     }
 
+    // Fungsi untuk menampilkan menu kembali
+    async function showReturnMenu() {
+        return new Promise((resolve) => {
+            console.log(chalk.yellow('\nPilih opsi:'));
+            console.log('1. Kembali ke menu utama');
+            console.log('2. Keluar');
+            rl.question(chalk.green('Masukkan pilihan (1-2): '), (choice) => {
+                if (choice === '1') {
+                    resolve(true); // Kembali ke menu utama
+                } else {
+                    console.log(chalk.blue('Keluar dari program.'));
+                    rl.close();
+                    process.exit(0);
+                }
+            });
+        });
+    }
+
     // Fungsi utama untuk auto send
     async function startAutoSender() {
         while (true) { // Loop untuk kembali ke menu utama
@@ -316,18 +335,23 @@ async function loadModules() {
                             failedTx++;
                         }
                     }
-                    console.log(chalk.blue('Menunggu 5 detik sebelum transaksi berikutnya...'));
-                    await new Promise(resolve => setTimeout(resolve, 5000)); // Delay 5 detik
+                    await new Promise(resolve => setTimeout(resolve, 1000)); // Delay 1 detik seperti semula
                 }
 
                 console.log(chalk.green(`Pengiriman selesai! Berhasil: ${successfulTx}, Gagal: ${failedTx}`));
                 logToFile(`Pengiriman selesai! Berhasil: ${successfulTx}, Gagal: ${failedTx}`);
-                await new Promise(resolve => rl.question(chalk.green('Tekan Enter untuk kembali ke menu utama...'), resolve));
+
+                // Tampilkan menu kembali
+                const returnToMenu = await showReturnMenu();
+                if (!returnToMenu) break; // Keluar dari loop jika tidak kembali ke menu
 
             } catch (error) {
                 console.log(chalk.red('Error dalam pengaturan pengiriman:'), error.message);
                 logToFile(`Error dalam pengaturan pengiriman: ${error.message}`);
-                await new Promise(resolve => rl.question(chalk.green('Tekan Enter untuk kembali ke menu utama...'), resolve));
+
+                // Tampilkan menu kembali meskipun ada error
+                const returnToMenu = await showReturnMenu();
+                if (!returnToMenu) break; // Keluar dari loop jika tidak kembali ke menu
             }
         }
     }
