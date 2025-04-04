@@ -36,7 +36,6 @@ async function loadModules() {
     const defaultCsvFilePath = 'data/recipients.csv';
     const csvListFile = 'data/csv_list.txt';
     const logFilePath = 'logs/transaction_log.txt';
-    const intervalMinutes = 10;
     const decimals = 18;
     const csvDir = 'data/';
     const maxTokenLimit = 1000000000; // Batas maksimum 1 miliar token
@@ -98,10 +97,16 @@ async function loadModules() {
         console.log('1. Dari file CSV default (data/recipients.csv)');
         console.log('2. Pilih token manual + masukkan penerima manual');
         console.log('3. Pilih token dan CSV dari daftar + jumlah manual');
-        console.log('4. Masukkan alamat token manual + CSV dari daftar + jumlah manual');
+        console.log('4. Masukkan alamat token Tokenmu');
+        console.log('5. Keluar');
 
         return new Promise((resolve) => {
-            rl.question('Masukkan pilihan (1-4): ', async (choice) => {
+            rl.question('Masukkan pilihan (1-5): ', async (choice) => {
+                if (choice === '5') {
+                    console.log('Keluar dari program.');
+                    rl.close();
+                    process.exit(0);
+                }
                 if (choice === '1') {
                     resolve({ mode: 'csv', address: process.env.TOKEN_ADDRESS, csvPath: defaultCsvFilePath, manualAmount: null });
                 } else if (choice === '2') {
@@ -113,7 +118,7 @@ async function loadModules() {
                         const selectedToken = tokenList[parseInt(tokenChoice) - 1];
                         if (!selectedToken) {
                             console.log('Pilihan tidak valid!');
-                            process.exit(1);
+                            resolve(await chooseTokenAndMode()); // Kembali ke menu
                         }
                         const recipients = [];
                         console.log('\nMasukkan penerima secara manual (kosongkan untuk selesai):');
@@ -146,7 +151,7 @@ async function loadModules() {
                         });
                         if (!tokenAddress) {
                             console.log('Pilihan tidak valid!');
-                            process.exit(1);
+                            resolve(await chooseTokenAndMode()); // Kembali ke menu
                         }
                     } else {
                         tokenAddress = await new Promise(resolve => {
@@ -157,7 +162,7 @@ async function loadModules() {
                     const csvFiles = getCsvList();
                     if (csvFiles.length === 0) {
                         console.log('Tidak ada file CSV yang tersedia!');
-                        process.exit(1);
+                        resolve(await chooseTokenAndMode()); // Kembali ke menu
                     }
                     console.log('\nDaftar File CSV Tersedia:');
                     csvFiles.forEach((file, index) => {
@@ -165,25 +170,23 @@ async function loadModules() {
                     });
                     rl.question('Pilih nomor file CSV: ', async (csvChoice) => {
                         const selectedCsv = csvFiles[parseInt(csvChoice) - 1];
-                        if (selectedCsv) {
-                            const manualAmount = await new Promise(resolve => {
-                                rl.question(`Masukkan jumlah token untuk semua penerima (maks ${maxTokenLimit.toLocaleString()}): `, resolve);
-                            });
-                            const amountInt = validateAmount(manualAmount);
-                            if (amountInt === null) {
-                                console.log('Silakan jalankan ulang script dan masukkan jumlah yang valid.');
-                                process.exit(1);
-                            }
-                            logToFile(`Jumlah token yang dipilih: ${amountInt}`);
-                            resolve({ mode: 'csv_custom_manual', address: tokenAddress, csvPath: `${csvDir}${selectedCsv}`, manualAmount: amountInt });
-                        } else {
+                        if (!selectedCsv) {
                             console.log('Pilihan tidak valid!');
-                            process.exit(1);
+                            resolve(await chooseTokenAndMode()); // Kembali ke menu
                         }
+                        const manualAmount = await new Promise(resolve => {
+                            rl.question(`Masukkan jumlah token untuk semua penerima (maks ${maxTokenLimit.toLocaleString()}): `, resolve);
+                        });
+                        const amountInt = validateAmount(manualAmount);
+                        if (amountInt === null) {
+                            resolve(await chooseTokenAndMode()); // Kembali ke menu
+                        }
+                        logToFile(`Jumlah token yang dipilih: ${amountInt}`);
+                        resolve({ mode: 'csv_custom_manual', address: tokenAddress, csvPath: `${csvDir}${selectedCsv}`, manualAmount: amountInt });
                     });
                 } else {
                     console.log('Pilihan tidak valid!');
-                    process.exit(1);
+                    resolve(await chooseTokenAndMode()); // Kembali ke menu
                 }
             });
         });
@@ -250,62 +253,58 @@ async function loadModules() {
 
     // Fungsi utama untuk auto send
     async function startAutoSender() {
-        const intervalMs = intervalMinutes * 60 * 1000;
+        while (true) { // Loop untuk kembali ke menu utama
+            const { mode, address, csvPath, manualAmount, recipients: manualRecipients } = await chooseTokenAndMode();
+            const tokenContract = new web3.eth.Contract(tokenABI, address);
 
-        const { mode, address, csvPath, manualAmount, recipients: manualRecipients } = await chooseTokenAndMode();
-        const tokenContract = new web3.eth.Contract(tokenABI, address);
+            displayHeader();
+            console.log(`Menggunakan token: ${address}`);
+            if (csvPath) console.log(`Menggunakan CSV: ${csvPath}`);
+            if (manualAmount) console.log(`Jumlah token manual: ${manualAmount}`);
 
-        displayHeader();
-        console.log(`Menggunakan token: ${address}`);
-        if (csvPath) console.log(`Menggunakan CSV: ${csvPath}`);
-        if (manualAmount) console.log(`Jumlah token manual: ${manualAmount}`);
+            try {
+                let recipients = manualRecipients || [];
+                if (mode === 'csv') {
+                    recipients = await readCSV(csvPath);
+                    if (recipients.length === 0) throw new Error('File CSV kosong atau tidak valid');
+                } else if (mode === 'csv_custom_manual') {
+                    recipients = await readCSV(csvPath);
+                    if (recipients.length === 0) throw new Error('File CSV kosong atau tidak valid');
+                    recipients = recipients.map(recipient => ({ ...recipient, amount: manualAmount }));
+                }
 
-        try {
-            let recipients = manualRecipients || []; // Gunakan recipients dari opsi 2 jika ada
-            if (mode === 'csv') {
-                recipients = await readCSV(csvPath);
-                if (recipients.length === 0) throw new Error('File CSV kosong atau tidak valid');
-            } else if (mode === 'csv_custom_manual') {
-                recipients = await readCSV(csvPath);
-                if (recipients.length === 0) throw new Error('File CSV kosong atau tidak valid');
-                recipients = recipients.map(recipient => ({ ...recipient, amount: manualAmount }));
-            }
+                const balance = await checkBalance(tokenContract);
+                const totalNeeded = web3.utils.toWei((recipients.reduce((sum, r) => sum + r.amount, 0)).toString(), 'ether');
+                logToFile(`Total kebutuhan token (wei): ${totalNeeded} | Saldo saat ini (wei): ${balance}`);
+                if (web3.utils.toBN(balance).lt(web3.utils.toBN(totalNeeded))) {
+                    console.log('Saldo token tidak cukup untuk semua transaksi');
+                    logToFile('Saldo token tidak cukup untuk semua transaksi');
+                    await new Promise(resolve => rl.question('Tekan Enter untuk kembali ke menu utama...', resolve));
+                    continue; // Kembali ke menu utama
+                }
 
-            const balance = await checkBalance(tokenContract);
-            const totalNeeded = web3.utils.toWei((recipients.reduce((sum, r) => sum + r.amount, 0)).toString(), 'ether');
-            logToFile(`Total kebutuhan token (wei): ${totalNeeded} | Saldo saat ini (wei): ${balance}`);
-            if (web3.utils.toBN(balance).lt(web3.utils.toBN(totalNeeded))) {
-                console.log('Saldo token tidak cukup untuk semua transaksi');
-                logToFile('Saldo token tidak cukup untuk semua transaksi');
-                rl.close();
-                return;
-            }
-
-            async function sendBatch() {
                 displayHeader();
-                console.log(`Memulai batch transaksi otomatis...`);
+                console.log(`Memulai pengiriman transaksi...`);
                 for (const recipient of recipients) {
                     const currentBalance = await checkBalance(tokenContract);
                     const recipientAmount = web3.utils.toWei(recipient.amount.toString(), 'ether');
                     if (web3.utils.toBN(currentBalance).lt(web3.utils.toBN(recipientAmount))) {
-                        console.log(`Saldo tidak cukup untuk ${recipient.address}. Menghentikan batch.`);
-                        logToFile(`Saldo tidak cukup untuk ${recipient.address}. Menghentikan batch.`);
+                        console.log(`Saldo tidak cukup untuk ${recipient.address}. Menghentikan pengiriman.`);
+                        logToFile(`Saldo tidak cukup untuk ${recipient.address}. Menghentikan pengiriman.`);
                         break;
                     }
                     await sendToken(tokenContract, recipient.address, recipient.amount);
                     await new Promise(resolve => setTimeout(resolve, 1000));
                 }
-                console.log('Batch selesai!');
-                logToFile('Batch selesai!');
+                console.log('Semua transaksi selesai!');
+                logToFile('Semua transaksi selesai!');
+                await new Promise(resolve => rl.question('Tekan Enter untuk kembali ke menu utama...', resolve));
+
+            } catch (error) {
+                console.log('Error dalam pengiriman:', error.message);
+                logToFile(`Error dalam pengiriman: ${error.message}`);
+                await new Promise(resolve => rl.question('Tekan Enter untuk kembali ke menu utama...', resolve));
             }
-
-            await sendBatch();
-            setInterval(sendBatch, intervalMs);
-
-        } catch (error) {
-            console.log('Error dalam auto sender:', error.message);
-            logToFile(`Error dalam auto sender: ${error.message}`);
-            rl.close();
         }
     }
 
