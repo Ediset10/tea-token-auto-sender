@@ -3,23 +3,46 @@ async function loadModules() {
     const Web3 = (await import('web3')).default;
     const fs = await import('fs');
     const csv = (await import('csv-parser')).default;
-    const dotenv = (await import('dotenv')).default;
     const readline = await import('readline');
     const chalk = (await import('chalk')).default;
-
-    // Konfigurasi dotenv
-    dotenv.config();
 
     // Konfigurasi Tea Sepolia Testnet
     const primaryRpc = 'https://tea-sepolia.g.alchemy.com/public';
     const web3 = new Web3(primaryRpc);
     const chainId = 10218;
 
-    // Informasi akun dari .env
-    const privateKey = process.env.PRIVATE_KEY;
-    if (!privateKey) throw new Error('PRIVATE_KEY tidak ditemukan di file .env');
-    const account = web3.eth.accounts.privateKeyToAccount(privateKey);
-    const senderAddress = account.address;
+    // Interface untuk input pengguna
+    const rl = readline.createInterface({
+        input: process.stdin,
+        output: process.stdout
+    });
+
+    // Fungsi untuk meminta input konfigurasi awal
+    async function getInitialConfig() {
+        const privateKey = await new Promise(resolve => {
+            rl.question(chalk.green('Masukkan PRIVATE_KEY Anda: '), resolve);
+        });
+        if (!privateKey) throw new Error('PRIVATE_KEY harus diisi!');
+
+        const account = web3.eth.accounts.privateKeyToAccount(privateKey);
+        const senderAddress = account.address;
+
+        const defaultTokenAddress = await new Promise(resolve => {
+            rl.question(chalk.green('Masukkan alamat token default (kosongkan jika tidak ada): '), resolve);
+        });
+
+        const csvDir = await new Promise(resolve => {
+            rl.question(chalk.green('Masukkan direktori CSV (tekan Enter untuk "data/"): '), input => {
+                resolve(input.trim() || 'data/');
+            });
+        });
+
+        const defaultCsvFilePath = `${csvDir}recipients.csv`;
+        const csvListFile = `${csvDir}csv_list.txt`;
+        const logFilePath = 'logs/transaction_log.txt';
+
+        return { privateKey, senderAddress, defaultTokenAddress, defaultCsvFilePath, csvListFile, logFilePath, csvDir };
+    }
 
     // Daftar token manual
     const tokenList = [
@@ -33,19 +56,12 @@ async function loadModules() {
         {"constant":true,"inputs":[{"name":"_owner","type":"address"}],"name":"balanceOf","outputs":[{"name":"balance","type":"uint256"}],"type":"function"}
     ];
 
-    // Konfigurasi
-    const defaultCsvFilePath = 'data/recipients.csv';
-    const csvListFile = 'data/csv_list.txt';
-    const logFilePath = 'logs/transaction_log.txt';
-    const decimals = 18;
-    const csvDir = 'data/';
+    // Konfigurasi batas maksimum
     const maxTokenLimit = 1000000000; // Batas maksimum 1 miliar token
 
-    // Interface untuk input pengguna
-    const rl = readline.createInterface({
-        input: process.stdin,
-        output: process.stdout
-    });
+    // Dapatkan konfigurasi awal dari pengguna
+    const config = await getInitialConfig();
+    const { privateKey, senderAddress, defaultTokenAddress, defaultCsvFilePath, csvListFile, logFilePath, csvDir } = config;
 
     // Fungsi untuk logging
     function logToFile(message) {
@@ -64,6 +80,18 @@ async function loadModules() {
  | Powered by ZUE - Tea Sepolia |
  ===============================
 `));
+    }
+
+    // Fungsi untuk animasi Tx Hash
+    async function displayTxHashWithAnimation(txHash) {
+        const frames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
+        let i = 0;
+        for (let count = 0; count < 10; count++) {
+            process.stdout.write(`\r${chalk.yellow('Memperbarui Tx Hash ' + frames[i % frames.length])}`);
+            i++;
+            await new Promise(resolve => setTimeout(resolve, 200)); // Delay 200ms per frame
+        }
+        process.stdout.write(`\r${chalk.green('Tx Hash: ' + txHash)}\n`);
     }
 
     // Fungsi untuk membaca daftar file CSV dari csv_list.txt
@@ -98,7 +126,7 @@ async function loadModules() {
         console.log('1. Dari file CSV');
         console.log('2. Pilih token manual + masukkan penerima manual');
         console.log('3. Pilih token dan CSV dari daftar + jumlah manual');
-        console.log('4. Masukkan alamat token anda + jumalah ');
+        console.log('4. Masukkan alamat token anda + jumlah');
         console.log('5. Keluar');
 
         return new Promise((resolve) => {
@@ -109,7 +137,7 @@ async function loadModules() {
                     process.exit(0);
                 }
                 if (choice === '1') {
-                    resolve({ mode: 'csv', address: process.env.TOKEN_ADDRESS, csvPath: defaultCsvFilePath, manualAmount: null });
+                    resolve({ mode: 'csv', address: defaultTokenAddress || tokenList[0].address, csvPath: defaultCsvFilePath, manualAmount: null });
                 } else if (choice === '2') {
                     console.log(chalk.yellow('\nDaftar Token Tersedia:'));
                     tokenList.forEach((token, index) => {
@@ -230,9 +258,10 @@ async function loadModules() {
             const signedTx = await web3.eth.accounts.signTransaction(txData, privateKey);
             const receipt = await web3.eth.sendSignedTransaction(signedTx.rawTransaction);
 
-            const logMessage = `Berhasil mengirim ${amountInt} token ke ${toAddress} | Tx Hash: ${receipt.transactionHash}`;
+            const logMessage = `Berhasil mengirim ${amountInt} token ke ${toAddress}`;
             console.log(chalk.green(logMessage));
-            logToFile(logMessage);
+            await displayTxHashWithAnimation(receipt.transactionHash);
+            logToFile(`${logMessage} | Tx Hash: ${receipt.transactionHash}`);
 
             return receipt.transactionHash;
         } catch (error) {
@@ -274,6 +303,7 @@ async function loadModules() {
                     recipients = recipients.map(recipient => ({ ...recipient, amount: manualAmount }));
                 }
 
+                const totalRecipients = recipients.length;
                 const balance = await checkBalance(tokenContract);
                 const totalNeeded = web3.utils.toWei((recipients.reduce((sum, r) => sum + r.amount, 0)).toString(), 'ether');
                 logToFile(`Total kebutuhan token (wei): ${totalNeeded} | Saldo saat ini (wei): ${balance}`);
@@ -283,7 +313,7 @@ async function loadModules() {
                 }
 
                 displayHeader();
-                console.log(chalk.yellow(`Memulai pengiriman transaksi...`));
+                console.log(chalk.yellow(`Memulai pengiriman transaksi ke ${totalRecipients} address...`));
                 let successfulTx = 0;
                 let failedTx = 0;
 
@@ -298,6 +328,7 @@ async function loadModules() {
                         const txHash = await sendToken(tokenContract, recipient.address, recipient.amount);
                         if (txHash) {
                             successfulTx++;
+                            console.log(chalk.blue(`Sudah dikirim ke ${successfulTx}/${totalRecipients} address`));
                         } else {
                             failedTx++;
                         }
