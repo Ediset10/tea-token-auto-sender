@@ -54,22 +54,20 @@ async function loadModules() {
         fs.appendFileSync(logFilePath, `${timestamp}: ${message}\n`);
     }
 
-    // Fungsi untuk tampilan header
+    // Fungsi untuk tampilan header yang menarik
     function displayHeader() {
         console.clear();
-        console.log(chalk.cyan.bold(`
-   ╔════════════════════════════════════╗
-   ║       TEA TOKEN SENDER v2.0        ║
-   ║   Powered by ZUE - Tea Sepolia     ║
-   ╚════════════════════════════════════╝
+        console.log(chalk.bold.rgb(255, 165, 0)(`
+   ┌────────────────────────────────────┐
+   │ 🚀 TEA TOKEN SENDER v2.0 🚀        │
+   │ Powered by ZUE - Tea Sepolia       │
+   └────────────────────────────────────┘
 `));
     }
 
-    // Fungsi untuk animasi Tx Hash yang lebih keren
+    // Fungsi untuk animasi Tx Hash yang keren
     async function displayTxHashWithAnimation(txHash) {
-        const frames = [
-            '🌌', '🌠', '✨', '💫', '⚡', '🔥', '🌟', '🚀', '🎇', '🎆'
-        ];
+        const frames = ['🌌', '🌠', '✨', '💫', '⚡', '🔥', '🌟', '🚀', '🎇', '🎆'];
         const buildUp = [
             '🔍 Fetching Tx Hash...',
             '🔗 Connecting to Blockchain...',
@@ -77,21 +75,18 @@ async function loadModules() {
             '🌈 Finalizing Tx Hash...'
         ];
         
-        // Animasi build-up
         for (let i = 0; i < buildUp.length; i++) {
             process.stdout.write(`\r${chalk.yellow(frames[i % frames.length] + ' ' + buildUp[i])}`);
-            await new Promise(resolve => setTimeout(resolve, 500)); // Delay 500ms per frame
+            await new Promise(resolve => setTimeout(resolve, 500));
         }
 
-        // Animasi Tx Hash muncul
         let hashDisplay = '';
         for (let i = 0; i < txHash.length; i++) {
             hashDisplay += txHash[i];
             process.stdout.write(`\r${chalk.green('✅ Tx Hash: ' + hashDisplay + ' ' + frames[i % frames.length])}`);
-            await new Promise(resolve => setTimeout(resolve, 50)); // Delay 50ms per karakter
+            await new Promise(resolve => setTimeout(resolve, 50));
         }
 
-        // Final touch
         for (let i = 0; i < 5; i++) {
             process.stdout.write(`\r${chalk.green('✅ Tx Hash: ' + txHash + ' ' + frames[i % frames.length])}`);
             await new Promise(resolve => setTimeout(resolve, 200));
@@ -138,20 +133,25 @@ async function loadModules() {
         return countInt;
     }
 
-    // Fungsi untuk memilih token dan mode
+    // Fungsi untuk memilih token dan mode dengan menu menarik
     async function chooseTokenAndMode() {
         displayHeader();
-        console.log(chalk.yellow('🚀 Pilih Mode Pengiriman Token:'));
-        console.log('  1. Dari file CSV');
-        console.log('  2. Pilih token manual + masukkan penerima manual');
-        console.log('  3. Pilih token dan CSV dari daftar + jumlah manual');
-        console.log('  4. Masukkan alamat token anda + jumlah');
-        console.log('  5. Keluar');
+        console.log(chalk.bold.rgb(0, 255, 255)(`
+   ┌─────────────────────────────┐
+   │ 🌟 MODE PENGIRIMAN TOKEN 🌟 │
+   └─────────────────────────────┘
+`));
+        console.log(chalk.rgb(255, 215, 0)('   1️⃣ Dari file CSV'));
+        console.log(chalk.rgb(255, 215, 0)('   2️⃣ Pilih token manual + masukkan penerima'));
+        console.log(chalk.rgb(255, 215, 0)('   3️⃣ Pilih token & CSV + jumlah manual'));
+        console.log(chalk.rgb(255, 215, 0)('   4️⃣ Masukkan alamat token + jumlah'));
+        console.log(chalk.rgb(255, 215, 0)('   5️⃣ Keluar'));
+        console.log(chalk.rgb(0, 255, 255)('   ─────────────────────────────'));
 
         return new Promise((resolve) => {
-            rl.question(chalk.green('➤ Masukkan pilihan (1-5): '), async (choice) => {
+            rl.question(chalk.green('➤ Pilih (1-5): '), async (choice) => {
                 if (choice === '5') {
-                    console.log(chalk.blue('👋 Keluar dari program.'));
+                    console.log(chalk.blue('🚪 Keluar dari program. Sampai jumpa!'));
                     rl.close();
                     process.exit(0);
                 }
@@ -160,7 +160,7 @@ async function loadModules() {
                 } else if (choice === '2') {
                     console.log(chalk.yellow('\n📜 Daftar Token Tersedia:'));
                     tokenList.forEach((token, index) => {
-                        console.log(`  ${index + 1}. ${token.name} (${token.address})`);
+                        console.log(chalk.cyan(`   ${index + 1}. ${token.name} (${token.address})`));
                     });
                     rl.question(chalk.green('➤ Pilih nomor token: '), async (tokenChoice) => {
                         const selectedToken = tokenList[parseInt(tokenChoice) - 1];
@@ -169,14 +169,14 @@ async function loadModules() {
                             resolve(await chooseTokenAndMode());
                         }
                         const recipients = [];
-                        console.log(chalk.yellow('\n✏ Masukkan penerima secara manual (kosongkan untuk selesai):'));
+                        console.log(chalk.yellow('\n✏ Masukkan penerima (kosongkan untuk selesai):'));
                         while (true) {
                             const recipient = await new Promise(resolve => {
-                                rl.question(chalk.green('  ➤ Alamat penerima: '), resolve);
+                                rl.question(chalk.green('   Alamat penerima: '), resolve);
                             });
                             if (!recipient) break;
                             const amount = await new Promise(resolve => {
-                                rl.question(chalk.green(`  ➤ Jumlah token (maks ${maxTokenLimit.toLocaleString()}): `), resolve);
+                                rl.question(chalk.green(`   Jumlah token (maks ${maxTokenLimit.toLocaleString()}): `), resolve);
                             });
                             const amountInt = validateAmount(amount);
                             if (amountInt === null) continue;
@@ -189,7 +189,7 @@ async function loadModules() {
                     if (choice === '3') {
                         console.log(chalk.yellow('\n📜 Daftar Token Tersedia:'));
                         tokenList.forEach((token, index) => {
-                            console.log(`  ${index + 1}. ${token.name} (${token.address})`);
+                            console.log(chalk.cyan(`   ${index + 1}. ${token.name} (${token.address})`));
                         });
                         tokenAddress = await new Promise(resolve => {
                             rl.question(chalk.green('➤ Pilih nomor token: '), (tokenChoice) => {
@@ -214,7 +214,7 @@ async function loadModules() {
                     }
                     console.log(chalk.yellow('\n📂 Daftar File CSV Tersedia:'));
                     csvFiles.forEach((file, index) => {
-                        console.log(`  ${index + 1}. ${file}`);
+                        console.log(chalk.cyan(`   ${index + 1}. ${file}`));
                     });
                     rl.question(chalk.green('➤ Pilih nomor file CSV: '), async (csvChoice) => {
                         const selectedCsv = csvFiles[parseInt(csvChoice) - 1];
@@ -223,7 +223,7 @@ async function loadModules() {
                             resolve(await chooseTokenAndMode());
                         }
                         const manualAmount = await new Promise(resolve => {
-                            rl.question(chalk.green(`➤ Masukkan jumlah token untuk semua penerima (maks ${maxTokenLimit.toLocaleString()}): `), resolve);
+                            rl.question(chalk.green(`➤ Jumlah token untuk semua (maks ${maxTokenLimit.toLocaleString()}): `), resolve);
                         });
                         const amountInt = validateAmount(manualAmount);
                         if (amountInt === null) {
@@ -252,9 +252,9 @@ async function loadModules() {
         });
     }
 
-    // Fungsi untuk mengirim token dengan retry dan pesan error sederhana
+    // Fungsi untuk mengirim token dengan retry
     async function sendToken(tokenContract, toAddress, amount, retries = 3) {
-        let lastGasPrice = null;
+        let gasPrice = await web3.eth.getGasPrice();
         for (let attempt = 1; attempt <= retries; attempt++) {
             try {
                 const amountInt = Math.floor(amount);
@@ -264,8 +264,7 @@ async function loadModules() {
                 console.log(chalk.rgb(255, 165, 0)(`🚀 Sending ${amountInt} tokens to ${toAddress}...`));
 
                 const nonce = await web3.eth.getTransactionCount(senderAddress, 'pending');
-                let gasPrice = await web3.eth.getGasPrice();
-                if (lastGasPrice) {
+                if (attempt > 1) {
                     gasPrice = web3.utils.toBN(gasPrice).add(web3.utils.toBN(web3.utils.toWei('5', 'gwei'))).toString();
                 }
                 const gasEstimate = await tokenContract.methods.transfer(toAddress, tokenAmount)
@@ -302,7 +301,6 @@ async function loadModules() {
                 }
                 console.log(chalk.red(errorMessage));
                 logToFile(`Error: ${error.message} | Percobaan ${attempt}`);
-                lastGasPrice = gasPrice;
 
                 if (attempt === retries) {
                     console.log(chalk.red(`✖ Gagal setelah ${retries} percobaan. Melanjutkan ke alamat berikutnya.`));
@@ -317,22 +315,27 @@ async function loadModules() {
     async function checkBalance(tokenContract) {
         const balance = await tokenContract.methods.balanceOf(senderAddress).call();
         const balanceInTokens = web3.utils.fromWei(balance, 'ether');
-        console.log(chalk.blue(`💰 Current Balance: ${balanceInTokens} tokens`));
+        console.log(chalk.blue(`💰 Saldo Saat Ini: ${balanceInTokens} tokens`));
         logToFile(`Saldo token saat ini: ${balanceInTokens} token`);
         return balance;
     }
 
-    // Fungsi untuk menampilkan menu kembali
+    // Fungsi untuk menampilkan menu kembali yang menarik
     async function showReturnMenu() {
         return new Promise((resolve) => {
-            console.log(chalk.yellow('\n=== Menu ==='));
-            console.log('  1. Back to Main Menu');
-            console.log('  2. Exit');
-            rl.question(chalk.green('➤ Select option (1-2): '), (choice) => {
+            console.log(chalk.bold.rgb(0, 255, 255)(`
+   ┌────────────────────┐
+   │ 🌟 MENU PILIHAN 🌟 │
+   └────────────────────┘
+`));
+            console.log(chalk.rgb(255, 215, 0)('   1️⃣ Kembali ke Menu Utama'));
+            console.log(chalk.rgb(255, 215, 0)('   2️⃣ Keluar'));
+            console.log(chalk.rgb(0, 255, 255)('   ────────────────────'));
+            rl.question(chalk.green('➤ Pilih (1-2): '), (choice) => {
                 if (choice === '1') {
                     resolve(true);
                 } else {
-                    console.log(chalk.blue('👋 Goodbye! Exiting program...'));
+                    console.log(chalk.blue('🚪 Keluar dari program. Sampai jumpa!'));
                     rl.close();
                     process.exit(0);
                 }
@@ -347,9 +350,9 @@ async function loadModules() {
             const tokenContract = new web3.eth.Contract(tokenABI, address);
 
             displayHeader();
-            console.log(chalk.yellow(`🌟 Token Selected: ${address}`));
-            if (csvPath) console.log(chalk.yellow(`📂 CSV File: ${csvPath}`));
-            if (manualAmount) console.log(chalk.yellow(`💸 Amount per Recipient: ${manualAmount} tokens`));
+            console.log(chalk.yellow(`🌟 Token: ${address}`));
+            if (csvPath) console.log(chalk.yellow(`📂 File CSV: ${csvPath}`));
+            if (manualAmount) console.log(chalk.yellow(`💸 Jumlah per Penerima: ${manualAmount} tokens`));
 
             try {
                 let recipients = manualRecipients || [];
@@ -361,13 +364,13 @@ async function loadModules() {
                         recipients = recipients.map(recipient => ({ ...recipient, amount: manualAmount }));
                     }
 
-                    console.log(chalk.yellow(`\n📊 Total Addresses in CSV: ${recipients.length}`));
+                    console.log(chalk.yellow(`\n📊 Total Alamat di CSV: ${recipients.length}`));
                     const addressCount = await new Promise(resolve => {
-                        rl.question(chalk.green(`➤ How many addresses to send to (max ${recipients.length}): `), resolve);
+                        rl.question(chalk.green(`➤ Berapa alamat yang akan dikirim (maks ${recipients.length}): `), resolve);
                     });
                     const validatedCount = validateAddressCount(addressCount, recipients.length);
                     if (validatedCount === null) {
-                        await new Promise(resolve => rl.question(chalk.green('Press Enter to return to menu...'), resolve));
+                        await new Promise(resolve => rl.question(chalk.green('Tekan Enter untuk kembali ke menu...'), resolve));
                         continue;
                     }
                     recipients = recipients.slice(0, validatedCount);
@@ -378,12 +381,12 @@ async function loadModules() {
                 const totalNeeded = web3.utils.toWei((recipients.reduce((sum, r) => sum + r.amount, 0)).toString(), 'ether');
                 logToFile(`Total kebutuhan token (wei): ${totalNeeded} | Saldo saat ini (wei): ${balance}`);
                 if (web3.utils.toBN(balance).lt(web3.utils.toBN(totalNeeded))) {
-                    console.log(chalk.red('⚠ Warning: Balance might not be sufficient for all transactions, but will attempt each recipient.'));
+                    console.log(chalk.red('⚠ Peringatan: Saldo mungkin tidak cukup untuk semua transaksi, tapi akan mencoba setiap penerima.'));
                     logToFile('Saldo token mungkin tidak cukup untuk semua transaksi, tetapi akan tetap mencoba setiap penerima');
                 }
 
                 displayHeader();
-                console.log(chalk.yellow(`🚀 Starting Transaction Process for ${totalRecipients} Addresses...`));
+                console.log(chalk.yellow(`🚀 Memulai Pengiriman ke ${totalRecipients} Alamat...`));
                 let successfulTx = 0;
                 let failedTx = 0;
 
@@ -391,23 +394,23 @@ async function loadModules() {
                     const currentBalance = await checkBalance(tokenContract);
                     const recipientAmount = web3.utils.toWei(recipient.amount.toString(), 'ether');
                     if (web3.utils.toBN(currentBalance).lt(web3.utils.toBN(recipientAmount))) {
-                        console.log(chalk.red(`⚠ Insufficient balance for ${recipient.address}. Skipping.`));
+                        console.log(chalk.red(`⚠ Saldo tidak cukup untuk ${recipient.address}. Melewati.`));
                         logToFile(`Saldo tidak cukup untuk ${recipient.address}. Melewati ke penerima berikutnya.`);
                         failedTx++;
                     } else {
                         const txHash = await sendToken(tokenContract, recipient.address, recipient.amount);
                         if (txHash) {
                             successfulTx++;
-                            console.log(chalk.hex('#FF69B4')(`🎉 Progress: Sent to ${successfulTx}/${totalRecipients} addresses`));
+                            console.log(chalk.hex('#FF69B4')(`🎉 Progres: Terkirim ke ${successfulTx}/${totalRecipients} alamat`));
                         } else {
                             failedTx++;
                         }
                     }
-                    console.log(chalk.cyan('⏳ Pausing for 10 seconds before next transaction...'));
+                    console.log(chalk.cyan('⏳ Jeda 10 detik sebelum transaksi berikutnya...'));
                     await new Promise(resolve => setTimeout(resolve, 10000));
                 }
 
-                console.log(chalk.green(`\n🎊 Transaction Completed! Success: ${successfulTx} | Failed: ${failedTx}`));
+                console.log(chalk.green(`\n🎊 Pengiriman Selesai! Berhasil: ${successfulTx} | Gagal: ${failedTx}`));
                 logToFile(`Pengiriman selesai! Berhasil: ${successfulTx}, Gagal: ${failedTx}`);
 
                 const returnToMenu = await showReturnMenu();
@@ -418,6 +421,8 @@ async function loadModules() {
                 logToFile(`Error dalam pengaturan pengiriman: ${error.message}`);
 
                 const returnToMenu = await showReturnMenu();
+Syndrome();
+
                 if (!returnToMenu) break;
             }
         }
