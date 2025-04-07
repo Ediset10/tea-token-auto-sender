@@ -1,89 +1,101 @@
-**Tea Token Auto Sender**
-Script untuk Tx daily Tea Sepolia Testnet
+# Tea Token Auto Sender
 
-**FITUR**
-- Kirim token dari file CSV atau masukkan penerima secara manual
-- Pilih jumlah alamat tujuan dari total di CSV + anda bisa mengatur token anda sendiri dengan memilih fitur No.4 juga bisa membuuat file csv sendiri jika tidak ingin menggunakan file yang sudah saya sediakan. 
-- Animasi Tx Hash interaktif dengan emoji
+Script untuk daily tx di Tea Sepolia Testnet
 
-**Tutorial**
-Sebelum mulai, pastikan kamu sudah memiliki persyaratn yang ada
-**1.Node JS** (Versi 14 atau lebih update)
-check versi node `node -V`
+## Fitur
+- Kirim token dari file CSV atau masukkan penerima secara manual.
+- Pilih jumlah alamat tujuan dari total di CSV.
+- Atur token Anda sendiri dengan memilih opsi No. 4 atau buat file CSV sendiri jika tidak ingin menggunakan file yang disediakan.
+- Animasi Tx Hash interaktif dengan emoji.
 
-**Instalasi**
-**1.Untuk Termux** 
-`pkg update && pkg upgrade`
+## Prasyarat
+Sebelum memulai, pastikan Anda memiliki:
+- **Node.js** (Versi 14 atau lebih baru). Cek versi dengan perintah:
+`node -V`
 
-**Pasang Git dan Nodejs**
-`pkg install git nodejs`
 
-**Clone Repository**
-`https://github.com/Ediset10/tea-token-auto-sender.git
- cd tea-token-auto-sender`
+## Instalasi
 
-**Instalasi Dependensi**
-`npm install
-# atau
-yarn install`
+### Untuk Termux
+1. Update dan upgrade paket:
 
-*Warn jika mengalami masalah pastikan download aplikasi versi terbaru
+         pkg update && pkg upgrade
 
-**Untuk Windows**
-- Download dan install [Nodejs](https://nodejs.org/en)
-- Download dan Insatll git [Git](https://git-scm.com/downloads/win)
-**Clone Repository**
-`https://github.com/Ediset10/tea-token-auto-sender.git
- cd tea-token-auto-sender`
-**Install Depensi**
-`npm install`
+2. Install Git dan Node.js:
 
-**Untuk VPS**
-Persiapan Awal
-`# Update paket
-sudo apt update && sudo apt upgrade -y
+          pkg install git nodejs
 
-# Install Node.js dan npm
-curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
-sudo apt install -y nodejs git
+3. Clone repository:
 
-# Install PM2 untuk menjalankan aplikasi di background
-npm install -g pm2`
+          git clone https://github.com/Ediset10/tea-token-auto-sender.git
+          cd tea-token-auto-sender
 
-- **Clone Repository**
-`https://github.com/Ediset10/tea-token-auto-sender.git
- cd tea-token-auto-sender`
+4. Install dependensi:
 
-**Install Depensi**
-`npm install`
+          npm install
 
-**Jalankan Script**
-`# Jalankan aplikasi dengan PM2
-pm2 start Sepolia-multisender.js
 
-# Pastikan aplikasi berjalan saat reboot
-pm2 startup
-pm2 save
 
-# Melihat log
-pm2 logs Sepolia-multisender.js`
+*Catatan: Jika ada masalah, pastikan Anda menggunakan versi aplikasi terbaru.*
 
-**Cara Buat File .Env**
-`# Untuk Linux/Mac/VPS
-cp .env.example .env
-nano .env
+### Untuk Windows
+1. Download dan install:
+ 
+        - Nodejs: https://nodejs.org/en
+        - Git   : https://git-scm.com/downloads/win
 
-# Untuk Windows
-copy .env.example .env
-notepad .env
+2. Clone repository:
 
-# Untuk Termux
-nano .env`
+         git clone https://github.com/Ediset10/tea-token-auto-sender.git
+         cd tea-token-auto-sender
 
-**isi File ENV**
-`PRIVATE_KEY=your_private_key_here
-TOKEN_ADDRESS=your_token_address_here
-`
-**Click CTRL X + Y lalu enter**
+3. Install dependensi:
 
-**Warn**jangan upload file env ke github 
+         npm install
+
+
+### Untuk VPS
+1. Persiapan awal:
+
+         sudo apt update && sudo apt upgrade -y
+
+
+2. Install Node.js dan npm
+
+        curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+        sudo apt install -y nodejs git
+
+3. Clone repository
+
+       git clone https://github.com/Ediset10/tea-token-auto-sender.git
+       cd tea-token-auto-sender
+
+4. Install Depensi
+
+       npm install
+
+   
+
+## Menjalankan Script
+### Untuk VPS 
+
+       npm start
+
+       
+
+
+
+
+   
+
+
+
+
+
+   
+
+
+
+
+   
+
