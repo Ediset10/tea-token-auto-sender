@@ -10,8 +10,8 @@ async function loadModules() {
     // Konfigurasi dotenv
     dotenv.config();
 
-    // Konfigurasi Tea Sepolia Testnet
-    const primaryRpc = 'https://tea-sepolia.g.alchemy.com/public'; // Ganti dengan API key jika ada
+    // Konfigurasi Tea Sepolia Testnet dengan RPC Alchemy
+    const primaryRpc = 'https://tea-sepolia.g.alchemy.com/v2/xQ8HAvXGLFYFz_wrrppV4N0uNUpZA_VE';
     const web3 = new Web3(primaryRpc);
     const chainId = 10218;
 
@@ -252,9 +252,9 @@ async function loadModules() {
         });
     }
 
-    // Fungsi untuk mengirim token dengan retry
+    // Fungsi untuk mengirim token dengan retry agresif
     async function sendToken(tokenContract, toAddress, amount, retries = 3) {
-        let gasPrice = await web3.eth.getGasPrice();
+        let gasPrice = web3.utils.toWei('50', 'gwei'); // Mulai dari 50 Gwei
         for (let attempt = 1; attempt <= retries; attempt++) {
             try {
                 const amountInt = Math.floor(amount);
@@ -265,7 +265,7 @@ async function loadModules() {
 
                 const nonce = await web3.eth.getTransactionCount(senderAddress, 'pending');
                 if (attempt > 1) {
-                    gasPrice = web3.utils.toBN(gasPrice).add(web3.utils.toBN(web3.utils.toWei('5', 'gwei'))).toString();
+                    gasPrice = web3.utils.toBN(gasPrice).mul(web3.utils.toBN('2')).toString(); // Gandakan gas tiap retry
                 }
                 const gasEstimate = await tokenContract.methods.transfer(toAddress, tokenAmount)
                     .estimateGas({ from: senderAddress });
@@ -274,7 +274,7 @@ async function loadModules() {
                     nonce: web3.utils.toHex(nonce),
                     to: tokenContract.options.address,
                     value: '0x0',
-                    gasLimit: web3.utils.toHex(gasEstimate + 10000),
+                    gasLimit: web3.utils.toHex(gasEstimate * 2), // Buffer gas
                     gasPrice: web3.utils.toHex(gasPrice),
                     data: tokenContract.methods.transfer(toAddress, tokenAmount).encodeABI(),
                     chainId: chainId
@@ -291,22 +291,22 @@ async function loadModules() {
             } catch (error) {
                 let errorMessage;
                 if (error.message.includes('replacement transaction underpriced')) {
-                    errorMessage = `⚠ Transaksi sebelumnya masih tertunda. Coba meningkatkan biaya gas. (Percobaan ${attempt})`;
+                    errorMessage = `⚠ Transaksi sebelumnya masih tertunda. Gas ditingkatkan ke ${web3.utils.fromWei(gasPrice, 'gwei')} Gwei. (Percobaan ${attempt})`;
                 } else if (error.message.includes('Invalid JSON RPC response')) {
                     errorMessage = `⚠ Koneksi ke jaringan gagal. Pastikan internet stabil. (Percobaan ${attempt})`;
                 } else if (error.message.includes('insufficient funds')) {
-                    errorMessage = `⚠ Saldo tidak cukup untuk membayar biaya transaksi. (Percobaan ${attempt})`;
+                    errorMessage = `⚠ Saldo ETH tidak cukup untuk gas. (Percobaan ${attempt})`;
                 } else {
-                    errorMessage = `⚠ Ada masalah saat mengirim token: ${error.message} (Percobaan ${attempt})`;
+                    errorMessage = `⚠ Ada masalah: ${error.message} (Percobaan ${attempt})`;
                 }
                 console.log(chalk.red(errorMessage));
-                logToFile(`Error: ${error.message} | Percobaan ${attempt}`);
+                logToFile(`Error: ${error.message} | Gas Price: ${gasPrice} | Percobaan ${attempt}`);
 
                 if (attempt === retries) {
-                    console.log(chalk.red(`✖ Gagal setelah ${retries} percobaan. Melanjutkan ke alamat berikutnya.`));
+                    console.log(chalk.red(`✖ Gagal setelah ${retries} percobaan. Cek explorer untuk transaksi tertunda.`));
                     return null;
                 }
-                await new Promise(resolve => setTimeout(resolve, 2000));
+                await new Promise(resolve => setTimeout(resolve, 5000)); // Jeda 5 detik antar retry
             }
         }
     }
@@ -343,7 +343,7 @@ async function loadModules() {
         });
     }
 
-    // Fungsi utama untuk auto send
+    // Fungsi utama untuk auto send dengan menunggu konfirmasi
     async function startAutoSender() {
         while (true) {
             const { mode, address, csvPath, manualAmount, recipients: manualRecipients } = await chooseTokenAndMode();
@@ -359,11 +359,9 @@ async function loadModules() {
                 if (mode === 'csv' || mode === 'csv_custom_manual') {
                     recipients = await readCSV(csvPath);
                     if (recipients.length === 0) throw new Error('File CSV kosong atau tidak valid');
-
                     if (mode === 'csv_custom_manual') {
                         recipients = recipients.map(recipient => ({ ...recipient, amount: manualAmount }));
                     }
-
                     console.log(chalk.yellow(`\n📊 Total Alamat di CSV: ${recipients.length}`));
                     const addressCount = await new Promise(resolve => {
                         rl.question(chalk.green(`➤ Berapa alamat yang akan dikirim (maks ${recipients.length}): `), resolve);
@@ -402,12 +400,14 @@ async function loadModules() {
                         if (txHash) {
                             successfulTx++;
                             console.log(chalk.hex('#FF69B4')(`🎉 Progres: Terkirim ke ${successfulTx}/${totalRecipients} alamat`));
+                            console.log(chalk.cyan('⏳ Jeda 10 detik setelah konfirmasi...'));
+                            await new Promise(resolve => setTimeout(resolve, 10000));
                         } else {
                             failedTx++;
+                            console.log(chalk.cyan('⏳ Jeda 10 detik meskipun gagal...'));
+                            await new Promise(resolve => setTimeout(resolve, 10000));
                         }
                     }
-                    console.log(chalk.cyan('⏳ Jeda 10 detik sebelum transaksi berikutnya...'));
-                    await new Promise(resolve => setTimeout(resolve, 10000));
                 }
 
                 console.log(chalk.green(`\n🎊 Pengiriman Selesai! Berhasil: ${successfulTx} | Gagal: ${failedTx}`));
@@ -421,8 +421,6 @@ async function loadModules() {
                 logToFile(`Error dalam pengaturan pengiriman: ${error.message}`);
 
                 const returnToMenu = await showReturnMenu();
-Syndrome();
-
                 if (!returnToMenu) break;
             }
         }
