@@ -65,13 +65,35 @@ async function loadModules() {
 `));
     }
 
-    // Fungsi untuk animasi Tx Hash
+    // Fungsi untuk animasi Tx Hash yang lebih keren
     async function displayTxHashWithAnimation(txHash) {
-        const frames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
-        let i = 0;
-        for (let count = 0; count < 10; count++) {
-            process.stdout.write(`\r${chalk.yellow('✨ Updating Tx Hash ' + frames[i % frames.length] + ' ')}`);
-            i++;
+        const frames = [
+            '🌌', '🌠', '✨', '💫', '⚡', '🔥', '🌟', '🚀', '🎇', '🎆'
+        ];
+        const buildUp = [
+            '🔍 Fetching Tx Hash...',
+            '🔗 Connecting to Blockchain...',
+            '⚙ Processing Transaction...',
+            '🌈 Finalizing Tx Hash...'
+        ];
+        
+        // Animasi build-up
+        for (let i = 0; i < buildUp.length; i++) {
+            process.stdout.write(`\r${chalk.yellow(frames[i % frames.length] + ' ' + buildUp[i])}`);
+            await new Promise(resolve => setTimeout(resolve, 500)); // Delay 500ms per frame
+        }
+
+        // Animasi Tx Hash muncul
+        let hashDisplay = '';
+        for (let i = 0; i < txHash.length; i++) {
+            hashDisplay += txHash[i];
+            process.stdout.write(`\r${chalk.green('✅ Tx Hash: ' + hashDisplay + ' ' + frames[i % frames.length])}`);
+            await new Promise(resolve => setTimeout(resolve, 50)); // Delay 50ms per karakter
+        }
+
+        // Final touch
+        for (let i = 0; i < 5; i++) {
+            process.stdout.write(`\r${chalk.green('✅ Tx Hash: ' + txHash + ' ' + frames[i % frames.length])}`);
             await new Promise(resolve => setTimeout(resolve, 200));
         }
         process.stdout.write(`\r${chalk.green('✅ Tx Hash: ' + txHash)}\n`);
@@ -230,8 +252,9 @@ async function loadModules() {
         });
     }
 
-    // Fungsi untuk mengirim token dengan retry
+    // Fungsi untuk mengirim token dengan retry dan pesan error sederhana
     async function sendToken(tokenContract, toAddress, amount, retries = 3) {
+        let lastGasPrice = null;
         for (let attempt = 1; attempt <= retries; attempt++) {
             try {
                 const amountInt = Math.floor(amount);
@@ -241,7 +264,10 @@ async function loadModules() {
                 console.log(chalk.rgb(255, 165, 0)(`🚀 Sending ${amountInt} tokens to ${toAddress}...`));
 
                 const nonce = await web3.eth.getTransactionCount(senderAddress, 'pending');
-                const gasPrice = await web3.eth.getGasPrice();
+                let gasPrice = await web3.eth.getGasPrice();
+                if (lastGasPrice) {
+                    gasPrice = web3.utils.toBN(gasPrice).add(web3.utils.toBN(web3.utils.toWei('5', 'gwei'))).toString();
+                }
                 const gasEstimate = await tokenContract.methods.transfer(toAddress, tokenAmount)
                     .estimateGas({ from: senderAddress });
 
@@ -264,11 +290,22 @@ async function loadModules() {
 
                 return receipt.transactionHash;
             } catch (error) {
-                const errorMessage = `⚠ Error sending ${amount} tokens to ${toAddress}: ${error.message} | Attempt ${attempt}`;
+                let errorMessage;
+                if (error.message.includes('replacement transaction underpriced')) {
+                    errorMessage = `⚠ Transaksi sebelumnya masih tertunda. Coba meningkatkan biaya gas. (Percobaan ${attempt})`;
+                } else if (error.message.includes('Invalid JSON RPC response')) {
+                    errorMessage = `⚠ Koneksi ke jaringan gagal. Pastikan internet stabil. (Percobaan ${attempt})`;
+                } else if (error.message.includes('insufficient funds')) {
+                    errorMessage = `⚠ Saldo tidak cukup untuk membayar biaya transaksi. (Percobaan ${attempt})`;
+                } else {
+                    errorMessage = `⚠ Ada masalah saat mengirim token: ${error.message} (Percobaan ${attempt})`;
+                }
                 console.log(chalk.red(errorMessage));
-                logToFile(errorMessage);
+                logToFile(`Error: ${error.message} | Percobaan ${attempt}`);
+                lastGasPrice = gasPrice;
+
                 if (attempt === retries) {
-                    console.log(chalk.red(`✖ Failed after ${retries} attempts. Skipping to next recipient.`));
+                    console.log(chalk.red(`✖ Gagal setelah ${retries} percobaan. Melanjutkan ke alamat berikutnya.`));
                     return null;
                 }
                 await new Promise(resolve => setTimeout(resolve, 2000));
@@ -333,7 +370,7 @@ async function loadModules() {
                         await new Promise(resolve => rl.question(chalk.green('Press Enter to return to menu...'), resolve));
                         continue;
                     }
-                    recipients = recipients.slice(0, validatedCount); // Potong sesuai jumlah yang diinginkan
+                    recipients = recipients.slice(0, validatedCount);
                 }
 
                 const totalRecipients = recipients.length;
@@ -367,7 +404,7 @@ async function loadModules() {
                         }
                     }
                     console.log(chalk.cyan('⏳ Pausing for 10 seconds before next transaction...'));
-                    await new Promise(resolve => setTimeout(resolve, 10000)); // Jeda 10 detik
+                    await new Promise(resolve => setTimeout(resolve, 10000));
                 }
 
                 console.log(chalk.green(`\n🎊 Transaction Completed! Success: ${successfulTx} | Failed: ${failedTx}`));
@@ -377,7 +414,7 @@ async function loadModules() {
                 if (!returnToMenu) break;
 
             } catch (error) {
-                console.log(chalk.red('⚠ Error in transaction setup:'), error.message);
+                console.log(chalk.red('⚠ Ada masalah saat menyiapkan pengiriman:'), error.message);
                 logToFile(`Error dalam pengaturan pengiriman: ${error.message}`);
 
                 const returnToMenu = await showReturnMenu();
