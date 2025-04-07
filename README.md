@@ -1,175 +1,89 @@
-Tea Token Auto Sender
-Ini adalah program sederhana untuk mengirim token di Tea Sepolia Testnet secara otomatis. Anda bisa mengirim token ke banyak alamat dari file CSV atau memasukkan alamat satu per satu. Batas maksimum pengiriman adalah 1 juta token per alamat.
-Fitur
-#Kirim token dari file CSV (data/recipients.csv).#
+**Tea Token Auto Sender**
+Script untuk Tx daily Tea Sepolia Testnet
 
-Masukkan alamat dan jumlah token secara manual.
+**FITUR**
+- Kirim token dari file CSV atau masukkan penerima secara manual
+- Pilih jumlah alamat tujuan dari total di CSV + anda bisa mengatur token anda sendiri dengan memilih fitur No.4 juga bisa membuuat file csv sendiri jika tidak ingin menggunakan file yang sudah saya sediakan. 
+- Animasi Tx Hash interaktif dengan emoji
 
-Pilih file CSV dan jumlah token untuk semua alamat.
+**Tutorial**
+Sebelum mulai, pastikan kamu sudah memiliki persyaratn yang ada
+**1.Node JS** (Versi 14 atau lebih update)
+check versi node `node -V`
 
-Mendukung dua token: TINU dan Wen TGE.
+**Instalasi**
+**1.Untuk Termux** 
+`pkg update && pkg upgrade`
 
-Catatan pengiriman disimpan di logs/transaction_log.txt.
+**Pasang Git dan Nodejs**
+`pkg install git nodejs`
 
-Yang Dibutuhkan
-Node.js (program untuk menjalankan script).
+**Clone Repository**
+`https://github.com/Ediset10/tea-token-auto-sender.git
+ cd tea-token-auto-sender`
 
-Kunci pribadi wallet (PRIVATE_KEY) dan token testnet.
+**Instalasi Dependensi**
+`npm install
+# atau
+yarn install`
 
-Text editor (misalnya nano).
+*Warn jika mengalami masalah pastikan download aplikasi versi terbaru
 
-*Cara Pakai di VPS (Linux)*
-Download Program
+**Untuk Windows**
+- Download dan install [Nodejs](https://nodejs.org/en)
+- Download dan Insatll git [Git](https://git-scm.com/downloads/win)
+**Clone Repository**
+`https://github.com/Ediset10/tea-token-auto-sender.git
+ cd tea-token-auto-sender`
+**Install Depensi**
+`npm install`
 
-Ketik di terminal:
-`git clone https://github.com/Ediset10/tea-token-auto-sender.git
-cd tea-token-auto-sender`
+**Untuk VPS**
+Persiapan Awal
+`# Update paket
+sudo apt update && sudo apt upgrade -y
 
-*Pasang Alat yang Dibutuhkan*
+# Install Node.js dan npm
+curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+sudo apt install -y nodejs git
 
-Ketik:
-`npm install web3 dotenv csv-parser`
+# Install PM2 untuk menjalankan aplikasi di background
+npm install -g pm2`
 
-*Atur Kunci Pribadi*
+- **Clone Repository**
+`https://github.com/Ediset10/tea-token-auto-sender.git
+ cd tea-token-auto-sender`
 
-Buat file .env:
+**Install Depensi**
+`npm install`
+
+**Jalankan Script**
+`# Jalankan aplikasi dengan PM2
+pm2 start Sepolia-multisender.js
+
+# Pastikan aplikasi berjalan saat reboot
+pm2 startup
+pm2 save
+
+# Melihat log
+pm2 logs Sepolia-multisender.js`
+
+**Cara Buat File .Env**
+`# Untuk Linux/Mac/VPS
+cp .env.example .env
 nano .env
 
-Tulis:
-PRIVATE_KEY=kunci_pribadi_anda
-TOKEN_ADDRESS=alamat_token_default
+# Untuk Windows
+copy .env.example .env
+notepad .env
 
-Simpan (Ctrl+O, Enter, Ctrl+X).
+# Untuk Termux
+nano .env`
 
-*Siapkan File CSV*
+**isi File ENV**
+`PRIVATE_KEY=your_private_key_here
+TOKEN_ADDRESS=your_token_address_here
+`
+**Click CTRL X + Y lalu enter**
 
-Buat folder "data":
-mkdir data
-
-Buat file data/csv_list.txt:
-nano data/csv_list.txt
-
-Tulis nama file CSV, misalnya:
-recipients.csv
-
-Buat file CSV (contoh: data/recipients.csv):
-nano data/recipients.csv
-
-Tulis:
-address,amount
-0xAlamat1,10
-0xAlamat2,5
-
-#Buat Folder untuk Catatan#
-
-Ketik:
-mkdir logs
-
-#Jalankan Program#
-
-Ketik:
-node src/auto-sender.js
-
-Pilih opsi:
-Pakai CSV default.
-
-#Masukkan alamat manual.#
-
-Pilih token dan CSV, lalu masukkan jumlah (maks 1 juta).
-
-Contoh:
-Pilih 3, pilih token 1, pilih CSV 1, masukkan 1000.
-
-Lihat Catatan
-
-Ketik:
-cat logs/transaction_log.txt
-
-#Cara Pakai di Termux (Android)
-Pasang Termux#
-
-Download dari Google Play atau F-Droid.
-
-Update Termux:
-``pkg update && pkg upgrade``
-
-Pasang Node.js dan Git
-
-Ketik:
-``pkg install nodejs git``
-
-Download Program
-
-Ketik:
-``git clone https://github.com/Ediset10/tea-token-auto-sender.git
-cd tea-token-auto-sender``
-
-Pasang Alat yang Dibutuhkan
-
-Ketik:
-``npm install web3 dotenv csv-parser``
-
-Atur Kunci Pribadi
-
-Buat file .env:
-nano .env
-
-Tulis:
-PRIVATE_KEY=kunci_pribadi_anda
-TOKEN_ADDRESS=alamat_token_default
-
-Simpan (Ctrl+O, Enter, Ctrl+X).
-
-Siapkan File CSV
-
-Buat folder "data":
-mkdir data
-
-Buat file data/csv_list.txt:
-nano data/csv_list.txt
-
-Tulis:
-recipients.csv
-
-Buat file CSV (contoh: data/recipients.csv):
-nano data/recipients.csv
-
-Tulis:
-address,amount
-0xAlamat1,10
-0xAlamat2,5
-
-Buat Folder untuk Catatan
-
-Ketik:
-mkdir logs
-
-Jalankan Program
-
-Ketik:
-node src/auto-sender.js
-
-Ikuti langkah seperti di VPS.
-
-Lihat Catatan
-
-Ketik:
-cat logs/transaction_log.txt
-
-Jika Ada Masalah
-"Saldo token tidak cukup": Pastikan ada cukup token di wallet.
-
-"PRIVATE_KEY tidak ditemukan": Periksa file .env.
-
-"File CSV kosong": Cek file CSV-nya ada dan benar.
-
-Jumlah lebih dari 1 juta: Masukkan jumlah kecil (maks 1,000,000).
-
-Ubah Sesuai Keinginan
-Tambah token: Edit tokenList di src/auto-sender.js.
-
-Ubah batas: Ganti maxTokenLimit di src/auto-sender.js.
-
-Lisensi
-Gratis untuk digunakan dan diubah (MIT License).
-
+**Warn**jangan upload file env ke github 
