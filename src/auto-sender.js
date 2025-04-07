@@ -6,6 +6,7 @@ async function loadModules() {
     const dotenv = (await import('dotenv')).default;
     const readline = await import('readline');
     const chalk = (await import('chalk')).default;
+    const axios = (await import('axios')).default;
 
     // Konfigurasi dotenv
     dotenv.config();
@@ -41,6 +42,7 @@ async function loadModules() {
     const decimals = 18;
     const csvDir = 'data/';
     const maxTokenLimit = 1000000000;
+    const faucetUrl = 'https://faucet-sepolia.tea.xyz/api/claim'; // Asumsi endpoint API
 
     // Interface untuk input pengguna
     const rl = readline.createInterface({
@@ -54,7 +56,7 @@ async function loadModules() {
         fs.appendFileSync(logFilePath, `${timestamp}: ${message}\n`);
     }
 
-    // Fungsi untuk tampilan header yang menarik
+    // Fungsi untuk tampilan header
     function displayHeader() {
         console.clear();
         console.log(chalk.bold.rgb(255, 165, 0)(`
@@ -65,7 +67,7 @@ async function loadModules() {
 `));
     }
 
-    // Fungsi untuk animasi Tx Hash yang keren
+    // Fungsi untuk animasi Tx Hash
     async function displayTxHashWithAnimation(txHash) {
         const frames = ['🌌', '🌠', '✨', '💫', '⚡', '🔥', '🌟', '🚀', '🎇', '🎆'];
         const buildUp = [
@@ -94,7 +96,7 @@ async function loadModules() {
         process.stdout.write(`\r${chalk.green('✅ Tx Hash: ' + txHash)}\n`);
     }
 
-    // Fungsi untuk membaca daftar file CSV dari csv_list.txt
+    // Fungsi untuk membaca daftar file CSV
     function getCsvList() {
         try {
             const content = fs.readFileSync(csvListFile, 'utf8');
@@ -133,7 +135,35 @@ async function loadModules() {
         return countInt;
     }
 
-    // Fungsi untuk memilih token dan mode dengan menu menarik
+    // Fungsi untuk auto-claim faucet
+    async function autoClaimFaucet() {
+        try {
+            console.log(chalk.yellow(`🚀 Mengklaim faucet Tea Sepolia untuk ${senderAddress}...`));
+            logToFile(`Memulai auto-claim faucet Tea Sepolia untuk ${senderAddress}`);
+
+            const response = await axios.post(faucetUrl, {
+                address: senderAddress
+            }, {
+                headers: { 'Content-Type': 'application/json' }
+            });
+
+            if (response.status === 200) {
+                console.log(chalk.green('✅ Berhasil mengklaim faucet! Periksa wallet Anda.'));
+                logToFile(`Berhasil mengklaim faucet untuk ${senderAddress}`);
+                return true;
+            } else {
+                console.log(chalk.red(`⚠ Gagal mengklaim faucet: ${response.data.message || 'Unknown error'}`));
+                logToFile(`Gagal mengklaim faucet: ${response.data.message || 'Unknown error'}`);
+                return false;
+            }
+        } catch (error) {
+            console.log(chalk.red(`⚠ Error saat mengklaim faucet: ${error.message}`));
+            logToFile(`Error saat mengklaim faucet: ${error.message}`);
+            return false;
+        }
+    }
+
+    // Fungsi untuk memilih token dan mode
     async function chooseTokenAndMode() {
         displayHeader();
         console.log(chalk.bold.rgb(0, 255, 255)(`
@@ -145,17 +175,20 @@ async function loadModules() {
         console.log(chalk.rgb(255, 215, 0)('   2️⃣ Pilih token manual + masukkan penerima'));
         console.log(chalk.rgb(255, 215, 0)('   3️⃣ Pilih token & CSV + jumlah manual'));
         console.log(chalk.rgb(255, 215, 0)('   4️⃣ Masukkan alamat token + jumlah'));
-        console.log(chalk.rgb(255, 215, 0)('   5️⃣ Keluar'));
+        console.log(chalk.rgb(255, 215, 0)('   5️⃣ Claim Faucet'));
+        console.log(chalk.rgb(255, 215, 0)('   6️⃣ Keluar'));
         console.log(chalk.rgb(0, 255, 255)('   ─────────────────────────────'));
 
         return new Promise((resolve) => {
-            rl.question(chalk.green('➤ Pilih (1-5): '), async (choice) => {
-                if (choice === '5') {
+            rl.question(chalk.green('➤ Pilih (1-6): '), async (choice) => {
+                if (choice === '6') {
                     console.log(chalk.blue('🚪 Keluar dari program. Sampai jumpa!'));
                     rl.close();
                     process.exit(0);
                 }
-                if (choice === '1') {
+                if (choice === '5') {
+                    resolve({ mode: 'faucet' });
+                } else if (choice === '1') {
                     resolve({ mode: 'csv', address: process.env.TOKEN_ADDRESS, csvPath: defaultCsvFilePath, manualAmount: null });
                 } else if (choice === '2') {
                     console.log(chalk.yellow('\n📜 Daftar Token Tersedia:'));
@@ -252,9 +285,9 @@ async function loadModules() {
         });
     }
 
-    // Fungsi untuk mengirim token dengan retry agresif
+    // Fungsi untuk mengirim token
     async function sendToken(tokenContract, toAddress, amount, retries = 3) {
-        let gasPrice = web3.utils.toWei('50', 'gwei'); // Mulai dari 50 Gwei
+        let gasPrice = web3.utils.toWei('50', 'gwei');
         for (let attempt = 1; attempt <= retries; attempt++) {
             try {
                 const amountInt = Math.floor(amount);
@@ -265,7 +298,7 @@ async function loadModules() {
 
                 const nonce = await web3.eth.getTransactionCount(senderAddress, 'pending');
                 if (attempt > 1) {
-                    gasPrice = web3.utils.toBN(gasPrice).mul(web3.utils.toBN('2')).toString(); // Gandakan gas tiap retry
+                    gasPrice = web3.utils.toBN(gasPrice).mul(web3.utils.toBN('2')).toString();
                 }
                 const gasEstimate = await tokenContract.methods.transfer(toAddress, tokenAmount)
                     .estimateGas({ from: senderAddress });
@@ -274,7 +307,7 @@ async function loadModules() {
                     nonce: web3.utils.toHex(nonce),
                     to: tokenContract.options.address,
                     value: '0x0',
-                    gasLimit: web3.utils.toHex(gasEstimate * 2), // Buffer gas
+                    gasLimit: web3.utils.toHex(gasEstimate * 2),
                     gasPrice: web3.utils.toHex(gasPrice),
                     data: tokenContract.methods.transfer(toAddress, tokenAmount).encodeABI(),
                     chainId: chainId
@@ -306,7 +339,7 @@ async function loadModules() {
                     console.log(chalk.red(`✖ Gagal setelah ${retries} percobaan. Cek explorer untuk transaksi tertunda.`));
                     return null;
                 }
-                await new Promise(resolve => setTimeout(resolve, 5000)); // Jeda 5 detik antar retry
+                await new Promise(resolve => setTimeout(resolve, 5000));
             }
         }
     }
@@ -320,7 +353,7 @@ async function loadModules() {
         return balance;
     }
 
-    // Fungsi untuk menampilkan menu kembali yang menarik
+    // Fungsi untuk menampilkan menu kembali
     async function showReturnMenu() {
         return new Promise((resolve) => {
             console.log(chalk.bold.rgb(0, 255, 255)(`
@@ -343,10 +376,18 @@ async function loadModules() {
         });
     }
 
-    // Fungsi utama untuk auto send dengan menunggu konfirmasi
+    // Fungsi utama
     async function startAutoSender() {
         while (true) {
             const { mode, address, csvPath, manualAmount, recipients: manualRecipients } = await chooseTokenAndMode();
+
+            if (mode === 'faucet') {
+                await autoClaimFaucet();
+                const returnToMenu = await showReturnMenu();
+                if (!returnToMenu) break;
+                continue;
+            }
+
             const tokenContract = new web3.eth.Contract(tokenABI, address);
 
             displayHeader();
@@ -419,7 +460,6 @@ async function loadModules() {
             } catch (error) {
                 console.log(chalk.red('⚠ Ada masalah saat menyiapkan pengiriman:'), error.message);
                 logToFile(`Error dalam pengaturan pengiriman: ${error.message}`);
-
                 const returnToMenu = await showReturnMenu();
                 if (!returnToMenu) break;
             }
