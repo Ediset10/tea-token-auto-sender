@@ -50,6 +50,20 @@ async function loadModules() {
         output: process.stdout
     });
 
+    // Fungsi untuk jeda acak dalam milidetik
+    function randomDelay(min, max) {
+        return new Promise(resolve => setTimeout(resolve, Math.floor(Math.random() * (max - min + 1)) + min));
+    }
+
+    // Fungsi untuk mengacak array
+    function shuffleArray(array) {
+        for (let i = array.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [array[i], array[j]] = [array[j], array[i]];
+        }
+        return array;
+    }
+
     // Fungsi untuk logging
     function logToFile(message) {
         const timestamp = new Date().toISOString();
@@ -138,13 +152,23 @@ async function loadModules() {
     // Fungsi untuk auto-claim faucet
     async function autoClaimFaucet() {
         try {
+            const userAgents = [
+                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+                'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0 Safari/605.1.15',
+                'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.107 Safari/537.36'
+            ];
+            const randomUA = userAgents[Math.floor(Math.random() * userAgents.length)];
+
             console.log(chalk.yellow(`🚀 Mengklaim faucet Tea Sepolia untuk ${senderAddress}...`));
             logToFile(`Memulai auto-claim faucet Tea Sepolia untuk ${senderAddress}`);
 
             const response = await axios.post(faucetUrl, {
                 address: senderAddress
             }, {
-                headers: { 'Content-Type': 'application/json' }
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'User-Agent': randomUA
+                }
             });
 
             if (response.status === 200) {
@@ -287,7 +311,7 @@ async function loadModules() {
 
     // Fungsi untuk mengirim token
     async function sendToken(tokenContract, toAddress, amount, retries = 3) {
-        let gasPrice = web3.utils.toWei('50', 'gwei');
+        let gasPrice = web3.utils.toWei((50 + Math.random() * 10).toString(), 'gwei'); // Gas acak 50-60 Gwei
         for (let attempt = 1; attempt <= retries; attempt++) {
             try {
                 const amountInt = Math.floor(amount);
@@ -339,7 +363,7 @@ async function loadModules() {
                     console.log(chalk.red(`✖ Gagal setelah ${retries} percobaan. Cek explorer untuk transaksi tertunda.`));
                     return null;
                 }
-                await new Promise(resolve => setTimeout(resolve, 5000));
+                await randomDelay(3000, 8000); // Jeda acak 3-8 detik sebelum retry
             }
         }
     }
@@ -412,7 +436,7 @@ async function loadModules() {
                         await new Promise(resolve => rl.question(chalk.green('Tekan Enter untuk kembali ke menu...'), resolve));
                         continue;
                     }
-                    recipients = recipients.slice(0, validatedCount);
+                    recipients = shuffleArray(recipients.slice(0, validatedCount)); // Acak urutan penerima
                 }
 
                 const totalRecipients = recipients.length;
@@ -441,12 +465,12 @@ async function loadModules() {
                         if (txHash) {
                             successfulTx++;
                             console.log(chalk.hex('#FF69B4')(`🎉 Progres: Terkirim ke ${successfulTx}/${totalRecipients} alamat`));
-                            console.log(chalk.cyan('⏳ Jeda 10 detik setelah konfirmasi...'));
-                            await new Promise(resolve => setTimeout(resolve, 10000));
+                            console.log(chalk.cyan('⏳ Jeda acak sebelum transaksi berikutnya...'));
+                            await randomDelay(5000, 15000); // Jeda acak 5-15 detik
                         } else {
                             failedTx++;
-                            console.log(chalk.cyan('⏳ Jeda 10 detik meskipun gagal...'));
-                            await new Promise(resolve => setTimeout(resolve, 10000));
+                            console.log(chalk.cyan('⏳ Jeda acak meskipun gagal...'));
+                            await randomDelay(5000, 15000); // Jeda acak 5-15 detik
                         }
                     }
                 }
