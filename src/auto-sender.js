@@ -123,7 +123,7 @@ async function loadModules() {
 
     // Fungsi untuk memvalidasi jumlah token
     function validateAmount(amount) {
-        const amountInt = Math.floor(parseFloat(amount));
+        const amountInt = Math.floor(parseFloat(amount)); // Bulatkan ke bawah
         if (isNaN(amountInt) || amountInt <= 0) {
             console.log(chalk.red('⚠ Jumlah token tidak valid! Harus bilangan bulat positif.'));
             return null;
@@ -311,11 +311,11 @@ async function loadModules() {
 
     // Fungsi untuk mengirim token
     async function sendToken(tokenContract, toAddress, amount, retries = 3) {
-        let gasPrice = web3.utils.toWei((50 + Math.random() * 10).toString(), 'gwei'); // Gas acak 50-60 Gwei
+        let gasPrice = web3.utils.toWei(Math.floor(50 + Math.random() * 10).toString(), 'gwei'); // Gas acak 50-59 Gwei
         for (let attempt = 1; attempt <= retries; attempt++) {
             try {
-                const amountInt = Math.floor(amount);
-                const tokenAmount = web3.utils.toWei(amountInt.toString(), 'ether');
+                const amountInt = Math.floor(amount); // Pastikan amount adalah bilangan bulat
+                const tokenAmount = web3.utils.toWei(amountInt.toString(), 'ether'); // Konversi ke wei
                 logToFile(`Mengirim ${amountInt} token ke ${toAddress} | Token Amount (wei): ${tokenAmount} | Percobaan ${attempt}`);
 
                 console.log(chalk.rgb(255, 165, 0)(`🚀 Sending ${amountInt} tokens to ${toAddress}...`));
@@ -425,7 +425,7 @@ async function loadModules() {
                     recipients = await readCSV(csvPath);
                     if (recipients.length === 0) throw new Error('File CSV kosong atau tidak valid');
                     if (mode === 'csv_custom_manual') {
-                        recipients = recipients.map(recipient => ({ ...recipient, amount: manualAmount }));
+                        recipients = recipients.map(recipient => ({ ...recipient, amount: Math.floor(manualAmount) })); // Bulatkan manualAmount
                     }
                     console.log(chalk.yellow(`\n📊 Total Alamat di CSV: ${recipients.length}`));
                     const addressCount = await new Promise(resolve => {
@@ -441,7 +441,7 @@ async function loadModules() {
 
                 const totalRecipients = recipients.length;
                 const balance = await checkBalance(tokenContract);
-                const totalNeeded = web3.utils.toWei((recipients.reduce((sum, r) => sum + r.amount, 0)).toString(), 'ether');
+                const totalNeeded = web3.utils.toWei((recipients.reduce((sum, r) => sum + Math.floor(r.amount), 0)).toString(), 'ether');
                 logToFile(`Total kebutuhan token (wei): ${totalNeeded} | Saldo saat ini (wei): ${balance}`);
                 if (web3.utils.toBN(balance).lt(web3.utils.toBN(totalNeeded))) {
                     console.log(chalk.red('⚠ Peringatan: Saldo mungkin tidak cukup untuk semua transaksi, tapi akan mencoba setiap penerima.'));
@@ -455,7 +455,7 @@ async function loadModules() {
 
                 for (const recipient of recipients) {
                     const currentBalance = await checkBalance(tokenContract);
-                    const recipientAmount = web3.utils.toWei(recipient.amount.toString(), 'ether');
+                    const recipientAmount = web3.utils.toWei(Math.floor(recipient.amount).toString(), 'ether'); // Pastikan bilangan bulat
                     if (web3.utils.toBN(currentBalance).lt(web3.utils.toBN(recipientAmount))) {
                         console.log(chalk.red(`⚠ Saldo tidak cukup untuk ${recipient.address}. Melewati.`));
                         logToFile(`Saldo tidak cukup untuk ${recipient.address}. Melewati ke penerima berikutnya.`);
@@ -464,7 +464,7 @@ async function loadModules() {
                         const txHash = await sendToken(tokenContract, recipient.address, recipient.amount);
                         if (txHash) {
                             successfulTx++;
-                            console.log(chalk.hex('#FF69B4')(`🎉 Progres: Terkirim ke ${successfulTx}/${totalRecipients} alamat`));
+                            console.log(chalk.hex('# USGSB4')(`🎉 Progres: Terkirim ke ${successfulTx}/${totalRecipients} alamat`));
                             console.log(chalk.cyan('⏳ Jeda acak sebelum transaksi berikutnya...'));
                             await randomDelay(5000, 15000); // Jeda acak 5-15 detik
                         } else {
